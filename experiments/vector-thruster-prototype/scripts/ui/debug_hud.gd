@@ -36,30 +36,68 @@ func _process(_delta: float) -> void:
 
 
 func _build_ui() -> void:
-    var panel := PanelContainer.new()
-    panel.position = Vector2(18.0, 18.0)
-    add_child(panel)
+    var status_panel := PanelContainer.new()
+    status_panel.position = Vector2(18.0, 18.0)
+    add_child(status_panel)
 
-    var margin := MarginContainer.new()
-    margin.add_theme_constant_override("margin_left", 14)
-    margin.add_theme_constant_override("margin_right", 14)
-    margin.add_theme_constant_override("margin_top", 10)
-    margin.add_theme_constant_override("margin_bottom", 10)
-    panel.add_child(margin)
+    var status_margin := MarginContainer.new()
+    status_margin.add_theme_constant_override("margin_left", 14)
+    status_margin.add_theme_constant_override("margin_right", 14)
+    status_margin.add_theme_constant_override("margin_top", 10)
+    status_margin.add_theme_constant_override("margin_bottom", 10)
+    status_panel.add_child(status_margin)
 
     _status_label = Label.new()
     _status_label.text = "STABILIZER ON   HOVER OFF"
     _status_label.add_theme_font_size_override("font_size", 19)
-    margin.add_child(_status_label)
+    status_margin.add_child(_status_label)
 
-    var controls := Label.new()
-    controls.text = "RT/Space lift   LS/WASD vector   RS-X/QE yaw   A/F stabilizer   B/H hover   T/X ship computer   Y/R reset"
-    controls.anchor_top = 1.0
-    controls.anchor_bottom = 1.0
-    controls.offset_left = 18.0
-    controls.offset_top = -42.0
-    controls.offset_right = 1560.0
-    controls.offset_bottom = -12.0
-    controls.add_theme_font_size_override("font_size", 17)
-    controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    add_child(controls)
+    var controls_panel := PanelContainer.new()
+    controls_panel.anchor_top = 1.0
+    controls_panel.anchor_bottom = 1.0
+    controls_panel.offset_left = 18.0
+    controls_panel.offset_top = -282.0
+    controls_panel.offset_right = 390.0
+    controls_panel.offset_bottom = -18.0
+    add_child(controls_panel)
+
+    var controls_margin := MarginContainer.new()
+    controls_margin.add_theme_constant_override("margin_left", 16)
+    controls_margin.add_theme_constant_override("margin_right", 16)
+    controls_margin.add_theme_constant_override("margin_top", 12)
+    controls_margin.add_theme_constant_override("margin_bottom", 12)
+    controls_panel.add_child(controls_margin)
+
+    var controls_stack := VBoxContainer.new()
+    controls_stack.add_theme_constant_override("separation", 5)
+    controls_margin.add_child(controls_stack)
+
+    var title := Label.new()
+    title.text = "GAMEPAD CONTROLS"
+    title.add_theme_font_size_override("font_size", 20)
+    controls_stack.add_child(title)
+
+    _add_control_row(controls_stack, "[RT]", "Lift / engine throttle")
+    _add_control_row(controls_stack, "[LS]", "Vector thrust / move")
+    _add_control_row(controls_stack, "[RS ↔]", "Yaw left / right")
+    _add_control_row(controls_stack, "[A]", "Attitude stabilizer ON / OFF")
+    _add_control_row(controls_stack, "[B]", "Hover hold ON / OFF")
+    _add_control_row(controls_stack, "[X]", "Ship computer terminal")
+    _add_control_row(controls_stack, "[Y]", "Reset ship")
+
+
+func _add_control_row(parent: VBoxContainer, button_text: String, action_text: String) -> void:
+    var row := HBoxContainer.new()
+    row.add_theme_constant_override("separation", 12)
+    parent.add_child(row)
+
+    var button := Label.new()
+    button.text = button_text
+    button.custom_minimum_size = Vector2(70.0, 0.0)
+    button.add_theme_font_size_override("font_size", 17)
+    row.add_child(button)
+
+    var action := Label.new()
+    action.text = action_text
+    action.add_theme_font_size_override("font_size", 16)
+    row.add_child(action)
