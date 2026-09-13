@@ -27,9 +27,14 @@ func _process(_delta: float) -> void:
     if snapshot.get("hover_enabled", false):
         hover_text = "ON @ %.1f m" % float(snapshot.get("hover_target_altitude", 0.0))
 
-    _status_label.text = "STABILIZER %s   HOVER %s   BATTERY %.0f%%   MOTOR %.0f%%" % [
+    var gravity_text := "ZERO-G"
+    if snapshot.get("gravity_active", false):
+        gravity_text = "GRAVITY %.2f m/s²" % float(snapshot.get("gravity_strength", 0.0))
+
+    _status_label.text = "STABILIZER %s   HOVER %s   %s   BATTERY %.0f%%   MOTOR %.0f%%" % [
         stabilizer_text,
         hover_text,
+        gravity_text,
         float(snapshot.get("battery_ratio", 0.0)) * 100.0,
         float(snapshot.get("engine_output_ratio", 0.0)) * 100.0,
     ]
@@ -48,7 +53,7 @@ func _build_ui() -> void:
     status_panel.add_child(status_margin)
 
     _status_label = Label.new()
-    _status_label.text = "STABILIZER ON   HOVER OFF"
+    _status_label.text = "STABILIZER ON   HOVER OFF   GRAVITY --"
     _status_label.add_theme_font_size_override("font_size", 19)
     status_margin.add_child(_status_label)
 

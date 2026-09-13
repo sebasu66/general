@@ -7,6 +7,7 @@ static func calculate(
         angular_velocity_world: Vector3,
         user_yaw: float,
         enabled: bool,
+        target_up_world: Vector3,
         proportional_gain: float,
         derivative_gain: float,
         yaw_damping: float,
@@ -21,9 +22,15 @@ static func calculate(
     var stable_basis := body_basis.orthonormalized()
     var world_to_local := stable_basis.transposed()
     var body_up_world := stable_basis.y.normalized()
-    var up_alignment := clampf(body_up_world.dot(Vector3.UP), -1.0, 1.0)
+    var target_up := target_up_world
+    if target_up.length_squared() < 0.0001:
+        target_up = body_up_world
+    else:
+        target_up = target_up.normalized()
 
-    output.level_error_local = world_to_local * body_up_world.cross(Vector3.UP)
+    var up_alignment := clampf(body_up_world.dot(target_up), -1.0, 1.0)
+
+    output.level_error_local = world_to_local * body_up_world.cross(target_up)
     output.angular_velocity_local = world_to_local * angular_velocity_world
     output.tilt_degrees = rad_to_deg(acos(up_alignment))
 

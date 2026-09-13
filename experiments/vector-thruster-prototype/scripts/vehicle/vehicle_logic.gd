@@ -35,6 +35,8 @@ var _hover_toggle_requested: bool = false
 var _reset_requested: bool = false
 var _spawn_transform: Transform3D
 var _debug_snapshot: Dictionary = {}
+var _space_world: SpaceWorld
+var _gravity_context: Dictionary = {}
 
 @onready var _computer: ShipComputerLogic = $Components/ShipComputer
 @onready var _pilot_seat: PilotSeatLogic = $Components/PilotSeat
@@ -58,6 +60,7 @@ func _ready() -> void:
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
     _apply_pending_reset(state)
+    _update_gravity_context(state.transform.origin)
     _apply_mode_requests(state)
 
     _computer.tick_power_system(state.step)
@@ -88,11 +91,16 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 
 
 func calculate_stabilization(state: PhysicsDirectBodyState3D) -> StabilizationOutput:
+    var target_up := state.transform.basis.orthonormalized().y.normalized()
+    if _has_local_gravity(state):
+        target_up = -state.total_gravity.normalized()
+
     return StabilizerLibrary.calculate(
         state.transform.basis,
         state.angular_velocity,
         _latest_input.yaw,
         _stabilizer_enabled,
+        target_up,
         stabilization_kp,
         stabilization_kd,
         yaw_damping,
@@ -135,19 +143,27 @@ func calculate_requested_lift(
         _hover_auto_throttle = manual_lift
         return manual_lift
 
+    if not _has_local_gravity(state) or not bool(_gravity_context.get("active", false)):
+        _hover_enabled = false
+        _hover_auto_throttle = manual_lift
+        return manual_lift
+
+    var local_up := -state.total_gravity.normalized()
     var total_available := ThrusterLibrary.total_available_thrust(_max_thrusts)
     var gravity_force := mass * state.total_gravity.length()
     var body_up := state.transform.basis.orthonormalized().y.normalized()
-    var upright_component := maxf(body_up.dot(Vector3.UP), 0.40)
+    var upright_component := maxf(body_up.dot(local_up), 0.40)
     var gimbal_component := cos(
         deg_to_rad(_average_max_gimbal()) * clampf(controlled_move.length(), 0.0, 1.0)
     )
     var vertical_authority := maxf(upright_component * gimbal_component, 0.35)
     var neutral_hover := gravity_force / maxf(total_available * vertical_authority, 0.001)
 
-    var altitude_error := _hover_target_altitude - state.transform.origin.y
+    var current_altitude := float(_gravity_context.get("surface_altitude", 0.0))
+    var vertical_velocity := state.linear_velocity.dot(local_up)
+    var altitude_error := _hover_target_altitude - current_altitude
     var altitude_correction := clampf(
-        altitude_error * hover_kp - state.linear_velocity.y * hover_kd,
+        altitude_error * hover_kp - vertical_velocity * hover_kd,
         -hover_max_correction,
         hover_max_correction
     )
@@ -191,7 +207,9 @@ func update_debug_metrics(state: PhysicsDirectBodyState3D) -> void:
         "stabilizer_enabled": _stabilizer_enabled,
         "hover_enabled": _hover_enabled,
         "hover_target_altitude": _hover_target_altitude,
-        "altitude": state.transform.origin.y,
+        "altitude": float(_gravity_context.get("surface_altitude", INF)),
+        "gravity_active": _has_local_gravity(state),
+        "gravity_strength": state.total_gravity.length(),
         "battery_ratio": float(power_snapshot.get("battery_ratio", 0.0)),
         "engine_output_ratio": float(engine_snapshot.get("actual_output_ratio", 0.0)),
     }
@@ -211,6 +229,11 @@ func get_power_source_component() -> PowerSourceLogic:
 
 func get_ship_computer() -> ShipComputerLogic:
     return _computer
+
+
+func configure_space_world(space_world: SpaceWorld) -> void:
+    _space_world = space_world
+    print("[VEHICLE] local asteroid gravity context connected")
 
 
 func configure_spawn_transform(spawn_transform: Transform3D) -> void:
@@ -251,6 +274,20 @@ func _average_max_gimbal() -> float:
     return total / float(_max_gimbals.size())
 
 
+func _update_gravity_context(world_position: Vector3) -> void:
+    if _space_world == null:
+        _gravity_context = {}
+        return
+    _gravity_context = _space_world.get_gravity_context(world_position)
+
+
+func _has_local_gravity(state: PhysicsDirectBodyState3D) -> bool:
+    var threshold := 0.15
+    if _space_world != null and _space_world.settings != null:
+        threshold = _space_world.settings.zero_gravity_threshold
+    return state.total_gravity.length() > threshold
+
+
 func _on_mode_command(command: StringName) -> void:
     print("[VEHICLE] LISTENER mode_command %s" % String(command))
     match command:
@@ -270,10 +307,12 @@ func _apply_mode_requests(state: PhysicsDirectBodyState3D) -> void:
         _stabilizer_toggle_requested = false
 
     if _hover_toggle_requested:
-        _hover_enabled = not _hover_enabled
         if _hover_enabled:
+            _hover_enabled = false
+        elif _has_local_gravity(state) and bool(_gravity_context.get("active", false)):
+            _hover_enabled = true
             _stabilizer_enabled = true
-            _hover_target_altitude = state.transform.origin.y
+            _hover_target_altitude = float(_gravity_context.get("surface_altitude", 0.0))
         _hover_toggle_requested = false
 
 

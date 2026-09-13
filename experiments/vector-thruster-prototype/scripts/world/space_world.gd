@@ -26,16 +26,18 @@ func ensure_generated() -> void:
 
     _build_starter_asteroid()
     _generate_asteroid_records()
+    _build_far_asteroid_physics()
     _build_far_asteroid_sectors()
     _build_star_field()
     _generated = true
 
     print(
-        "[SPACE_WORLD] generated seed=%d asteroids=%d sectors=%d radius=%.0fm" % [
+        "[SPACE_WORLD] generated seed=%d asteroids=%d sectors=%d radius=%.0fm local_gravity=%.1fm/s2" % [
             settings.world_seed,
             settings.asteroid_count,
             _sector_nodes.size(),
             settings.field_radius,
+            settings.asteroid_surface_gravity,
         ]
     )
 
@@ -65,6 +67,42 @@ func get_asteroid_records() -> Array[Dictionary]:
     for record: Dictionary in _asteroid_records:
         copy.append(record.duplicate(true))
     return copy
+
+
+func get_gravity_context(world_position: Vector3) -> Dictionary:
+    var best: Dictionary = {}
+    var best_strength := 0.0
+
+    best = _consider_gravity_source(
+        world_position,
+        _starter_asteroid_center,
+        _starter_asteroid_radius,
+        best,
+        best_strength
+    )
+    if not best.is_empty():
+        best_strength = float(best.get("gravity_strength", 0.0))
+
+    for record: Dictionary in _asteroid_records:
+        var candidate := _consider_gravity_source(
+            world_position,
+            record["center"],
+            float(record["surface_radius"]),
+            best,
+            best_strength
+        )
+        if not candidate.is_empty() and candidate != best:
+            best = candidate
+            best_strength = float(best.get("gravity_strength", 0.0))
+
+    if best.is_empty():
+        return {
+            "active": false,
+            "gravity_strength": 0.0,
+            "up": Vector3.ZERO,
+            "surface_altitude": INF,
+        }
+    return best
 
 
 func build_environment() -> Environment:
@@ -119,6 +157,8 @@ func _build_starter_asteroid() -> void:
     occluder_instance.occluder = occluder
     body.add_child(occluder_instance)
 
+    _add_gravity_zone(body, _starter_asteroid_radius)
+
 
 func _generate_asteroid_records() -> void:
     _asteroid_records.clear()
@@ -151,14 +191,58 @@ func _generate_asteroid_records() -> void:
             floori(position.y / settings.sector_size),
             floori(position.z / settings.sector_size)
         )
+        var surface_radius := radius * minf(stretch.x, minf(stretch.y, stretch.z)) * 0.90
 
         _asteroid_records.append({
             "center": position,
             "radius": radius,
+            "surface_radius": surface_radius,
             "stretch": stretch,
             "rotation": rotation,
             "sector": sector,
         })
+
+
+func _build_far_asteroid_physics() -> void:
+    var physics_root := Node3D.new()
+    physics_root.name = "AsteroidPhysicsProxies"
+    add_child(physics_root)
+
+    for index: int in range(_asteroid_records.size()):
+        var record: Dictionary = _asteroid_records[index]
+        var surface_radius := float(record["surface_radius"])
+
+        var body := StaticBody3D.new()
+        body.name = "AsteroidProxy_%03d" % index
+        body.position = record["center"]
+        physics_root.add_child(body)
+
+        var collision := CollisionShape3D.new()
+        var surface_shape := SphereShape3D.new()
+        surface_shape.radius = surface_radius
+        collision.shape = surface_shape
+        body.add_child(collision)
+
+        _add_gravity_zone(body, surface_radius)
+
+
+func _add_gravity_zone(parent: Node3D, surface_radius: float) -> void:
+    var area := Area3D.new()
+    area.name = "GravityField"
+    area.gravity_space_override = Area3D.SPACE_OVERRIDE_COMBINE
+    area.gravity_point = true
+    area.gravity_point_center = Vector3.ZERO
+    area.gravity = settings.asteroid_surface_gravity
+    area.gravity_point_unit_distance = surface_radius
+    area.monitorable = false
+    parent.add_child(area)
+
+    var collision := CollisionShape3D.new()
+    collision.name = "GravityInfluence"
+    var influence_shape := SphereShape3D.new()
+    influence_shape.radius = surface_radius * settings.gravity_influence_multiplier
+    collision.shape = influence_shape
+    area.add_child(collision)
 
 
 func _build_far_asteroid_sectors() -> void:
@@ -240,6 +324,37 @@ func _build_star_field() -> void:
     stars.multimesh = multimesh
     stars.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     add_child(stars)
+
+
+func _consider_gravity_source(
+        world_position: Vector3,
+        center: Vector3,
+        surface_radius: float,
+        current_best: Dictionary,
+        current_strength: float
+) -> Dictionary:
+    var delta := world_position - center
+    var distance := delta.length()
+    var influence_radius := surface_radius * settings.gravity_influence_multiplier
+    if distance > influence_radius or distance < 0.001:
+        return current_best
+
+    var gravity_strength := settings.asteroid_surface_gravity * pow(
+        surface_radius / maxf(distance, surface_radius * 0.15),
+        2.0
+    )
+    if gravity_strength <= current_strength:
+        return current_best
+
+    return {
+        "active": true,
+        "center": center,
+        "surface_radius": surface_radius,
+        "surface_altitude": distance - surface_radius,
+        "up": delta.normalized(),
+        "gravity_strength": gravity_strength,
+        "influence_radius": influence_radius,
+    }
 
 
 func _create_rock_material() -> StandardMaterial3D:

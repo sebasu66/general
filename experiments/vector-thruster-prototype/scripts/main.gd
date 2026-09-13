@@ -27,6 +27,7 @@ func _ready() -> void:
 
 func _place_vehicle_after_world_generation() -> void:
     space_world.ensure_generated()
+    vehicle.configure_space_world(space_world)
     var spawn_transform := space_world.get_safe_spawn_transform()
 
     vehicle.freeze = true
