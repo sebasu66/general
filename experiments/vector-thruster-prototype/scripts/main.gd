@@ -2,6 +2,7 @@ extends Node3D
 
 const BASE_CONTENT_SIZE := Vector2i(1600, 900)
 
+@onready var terrain: ProceduralTerrain = $Terrain
 @onready var vehicle: VehicleLogic = $Vehicle
 @onready var follow_camera: PrototypeFollowCamera = $FollowCamera
 @onready var hud: DebugHUD = $HUD
@@ -15,12 +16,34 @@ func _ready() -> void:
     PilotInput.ensure_actions()
     _configure_window_scaling()
     _configure_environment()
+    _place_vehicle_after_terrain_generation()
     follow_camera.target = vehicle
     follow_camera.snap_to_target()
     hud.bind(vehicle)
     engine_ui.bind(vehicle.get_engine_component())
     power_ui.bind(vehicle.get_power_source_component())
     computer_ui.bind(vehicle.get_ship_computer())
+
+
+func _place_vehicle_after_terrain_generation() -> void:
+    terrain.ensure_generated()
+    var spawn_position := terrain.get_safe_spawn_position()
+
+    vehicle.freeze = true
+    vehicle.global_position = spawn_position
+    vehicle.linear_velocity = Vector3.ZERO
+    vehicle.angular_velocity = Vector3.ZERO
+    vehicle.configure_spawn_transform(vehicle.global_transform)
+    vehicle.reset_physics_interpolation()
+    vehicle.freeze = false
+
+    print(
+        "[WORLD] terrain ready -> vehicle positioned at %.2f m above world origin (terrain %.2f + clearance %.2f)" % [
+            spawn_position.y,
+            terrain.get_height_at(0.0, 0.0),
+            terrain.spawn_clearance,
+        ]
+    )
 
 
 func _configure_window_scaling() -> void:
