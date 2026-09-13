@@ -148,6 +148,22 @@ mesh = SubResource("Mesh_thruster_bridge")
 position = Vector3(0, -0.12, 1.48)
 mesh = SubResource("Mesh_thruster_bridge")
 
+[node name="PortHeadlight" type="SpotLight3D" parent="."]
+position = Vector3(-0.58, 0.12, -2.45)
+light_color = Color(0.88, 0.94, 1, 1)
+light_energy = 5.5
+shadow_enabled = true
+spot_range = 42.0
+spot_angle = 32.0
+
+[node name="StarboardHeadlight" type="SpotLight3D" parent="."]
+position = Vector3(0.58, 0.12, -2.45)
+light_color = Color(0.88, 0.94, 1, 1)
+light_energy = 5.5
+shadow_enabled = true
+spot_range = 42.0
+spot_angle = 32.0
+
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("Shape_body")
 
