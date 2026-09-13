@@ -8,24 +8,57 @@ extends StaticBody3D
 @export var detail_frequency: float = 0.055
 @export var terrain_seed: int = 47291
 @export_range(0, 120, 1) var resource_deposit_count: int = 54
+@export var spawn_clearance: float = 2.2
 
 var _primary_noise := FastNoiseLite.new()
 var _detail_noise := FastNoiseLite.new()
 var _rng := RandomNumberGenerator.new()
+var _noise_configured: bool = false
+var _generated: bool = false
 
 
 func _ready() -> void:
-    _configure_noise()
+    ensure_generated()
+
+
+func ensure_generated() -> void:
+    if _generated:
+        return
+    _ensure_noise_configured()
     _build_terrain()
     _scatter_resource_deposits()
+    _generated = true
+    print("[TERRAIN] generated before vehicle placement; seed=%d size=%.0fm" % [terrain_seed, terrain_size])
+
+
+func is_generated() -> bool:
+    return _generated
 
 
 func get_height_at(x: float, z: float) -> float:
+    _ensure_noise_configured()
     var broad := _primary_noise.get_noise_2d(x, z) * height_scale
     var detail := _detail_noise.get_noise_2d(x, z) * height_scale * 0.22
     var distance_from_spawn := Vector2(x, z).length()
     var spawn_blend := smoothstep(10.0, 26.0, distance_from_spawn)
     return (broad + detail) * spawn_blend
+
+
+func get_safe_spawn_position(local_xz: Vector2 = Vector2.ZERO) -> Vector3:
+    ensure_generated()
+    var local_position := Vector3(
+        local_xz.x,
+        get_height_at(local_xz.x, local_xz.y) + spawn_clearance,
+        local_xz.y
+    )
+    return to_global(local_position)
+
+
+func _ensure_noise_configured() -> void:
+    if _noise_configured:
+        return
+    _configure_noise()
+    _noise_configured = true
 
 
 func _configure_noise() -> void:
