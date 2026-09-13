@@ -1,0 +1,4 @@
+[submodule "experiments/voxel-tools-study/solar_system_demo"]
+	path = experiments/voxel-tools-study/solar_system_demo
+	url = https://github.com/Zylann/solar_system_demo.git
+	branch = master
