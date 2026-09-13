@@ -173,6 +173,56 @@ A later stronger `station hold` mode may also capture the current world position
 
 `B` should automatically cooperate with the A stabilizer so the craft can become both translationally and rotationally quiet.
 
+## Camera control / camera clutch
+
+The camera should have a dedicated temporary free-look control rather than overloading the vector brake.
+
+Recommended behavior:
+
+```text
+normal flight
+right stick -> ship control
+camera      -> chase position behind craft
+
+hold CAMERA CLUTCH
+right stick -> orbit camera around craft
+ship input from that stick is suppressed
+camera      -> free orbit / inspect
+
+release CAMERA CLUTCH
+right stick -> ship control again
+camera      -> smoothly recenters behind craft
+```
+
+This keeps the control model predictable: `B` always means vector brake / station hold, while camera movement is an explicit pilot intent.
+
+A useful secondary behavior is that when `B` station hold is active, free-look can be especially comfortable because the craft is already being held translationally/rotationally quiet. However, station hold should not be required to orbit the camera.
+
+The camera return should be smooth rather than snapping immediately. A short spring/damped recenter makes it easy to inspect docking clearance, cave walls, damaged hull sections or nearby threats and then resume flight.
+
+Possible controller bindings should be tested against the final gamepad layout. Candidates include:
+
+- right-stick click hold;
+- left-stick click hold;
+- a shoulder button held as a camera modifier.
+
+Prefer a **hold modifier** rather than a toggle for the first prototype because the player can instantly return the stick to flight control by releasing it.
+
+The camera system should remain separate from `VehicleLogic`:
+
+```text
+PilotInput
+  -> FlightInputRouter
+  -> CameraInputRouter
+
+CameraController
+  -> chase mode
+  -> temporary orbit mode
+  -> smooth recenter
+```
+
+This also scales later to gunner, docking and interior camera feeds without coupling view control to spacecraft physics.
+
 ## Thruster allocation architecture
 
 Do not encode behavior as rules such as "rear thrusters always move forward".
@@ -235,6 +285,7 @@ SPACE
 - A: angular stabilization
 - B: vector brake / station hold
 - crafted actuator authority
+- camera clutch: temporary free orbit without steering the craft
 ```
 
 A gravity/atmospheric flight mode can be designed later and can use different assistance rules while sharing the same actuator/allocator foundation.
@@ -248,7 +299,8 @@ A gravity/atmospheric flight mode can be designed later and can use different as
 5. Make requested rotation generate force couples from real mount positions.
 6. Fix A stabilization using angular-velocity target/damping through the same allocator.
 7. Implement B vector brake using target linear velocity zero.
-8. Tune stick/trigger mapping by play testing.
-9. Only afterward add extra RCS/gyro actuators and player-crafted layouts.
+8. Add dedicated camera-clutch input and smooth chase-camera recentering.
+9. Tune stick/trigger mapping by play testing.
+10. Only afterward add extra RCS/gyro actuators and player-crafted layouts.
 
 The crucial design rule is that stabilization and braking use the **same physical actuator model** as normal flight. They are control assists, not hidden teleport/velocity hacks.
