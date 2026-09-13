@@ -18,7 +18,7 @@ static func build_commands(
     var commands: Array[ThrusterCommand] = []
     var max_x := _max_mount_extent(mount_positions, true)
     var max_z := _max_mount_extent(mount_positions, false)
-    var effective_yaw := clampf(pilot.yaw + stabilization.yaw_correction, -1.0, 1.0)
+    var effective_yaw := clampf(-pilot.yaw + stabilization.yaw_correction, -1.0, 1.0)
 
     for index: int in range(mount_positions.size()):
         var mount := mount_positions[index]
