@@ -38,13 +38,13 @@ This avoids both failure modes of a simple noise-only cave generator:
 - disconnected internal bubbles that cannot be reached;
 - an asteroid that becomes uniformly hollow or sponge-like.
 
-## Current default test values
+## Current temporary granular test values
 
 ```text
 starter radius:        42 m
-voxel resolution:      64
-requested voxel size:  1.25 m
-actual size:            clamped as needed to fit padded radius
+voxel resolution:      128
+requested voxel size:  0.50 m
+actual size:            still clamped as needed to fit padded radius
 surface noise:          0.24
 cave frequency:         0.085
 cave threshold:         0.50
@@ -53,7 +53,11 @@ main tunnel radius:     5.5 m
 chamber radius:         10 m
 ```
 
-At radius 42 m with surface padding, resolution 64 yields roughly 1.7 m cells. This is already much finer than the previous ~4 m asteroid cells, but it is **not** the final ship-hull voxel scale. Ship armor can later use much smaller voxels (roughly 0.1–0.25 m) because its volume and streaming requirements differ from world terrain.
+The earlier 64-resolution proof produced ~1.68 m cells and read too much like large Minecraft blocks. The isolated `experiment/voxel-granularity-pass` branch therefore temporarily doubles the dense resolution to 128 and requests 0.50 m cells for visual comparison.
+
+This is **not** the production scaling strategy. A much larger planetoid combined with small cells would make one monolithic `resolution^3` occupancy array grow too quickly. Before enlarging the body substantially, move to chunked voxel storage/meshing so fine cells are paid for only where relevant.
+
+Ship armor can later use even smaller voxels (roughly 0.1–0.25 m depending on ship scale) because its physical volume and streaming requirements differ from terrain.
 
 ## Entrances
 
@@ -69,6 +73,93 @@ Temporary emissive beacons and local lights mark the two entrances so testing do
 The former starter asteroid used a simple `SphereOccluder3D`. That is valid for a solid rock but wrong once the body has navigable caves: a closed spherical occluder would claim that cave openings/interiors are solid.
 
 Therefore the cavern version disables the sphere occluder. Later voxel/chunk occlusion should use geometry-aware occluders or rely on normal depth/occlusion behavior rather than a fake closed volume.
+
+## Visual review corrections — ordered implementation
+
+The first visual review identified several issues that should be corrected in dependency order rather than by only increasing constants.
+
+### 1. Lighting/readability first
+
+Before judging cave geometry or material distribution, make the scene readable:
+
+- provide a clearly visible primary star/sun;
+- align the main directional light with that visible source;
+- increase restrained ambient fill without flattening space lighting;
+- retain strong directional shadows;
+- give the spacecraft forward headlights for cave navigation.
+
+The first lighting pass on this branch now adds a visible warm primary star, a stronger aligned directional light, more readable ambient fill, and two spacecraft spotlights.
+
+### 2. Material variety and emissive geology
+
+The planetoid must stop reading as one uniformly colored cubic construction. Add real voxel material IDs for several geological families, initially something like:
+
+```text
+dark basalt / common rock
+lighter silicate / fractured stone
+metallic ore
+iron-rich rock
+crystal / iridescent mineral
+emissive mineral
+ice / glassy material where appropriate
+```
+
+These should evolve into `VoxelMaterialDefinition` data that eventually also drives hardness, density, mining value and damage behavior. Emissive/iridescent deposits should become sparse cave landmarks rather than global illumination.
+
+### 3. Chunked fine-voxel substrate
+
+The visual target is explicitly **not Minecraft**:
+
+- small voxels;
+- organic silhouettes;
+- contiguous voxels compiled into merged geometry;
+- authoritative voxels remain individually addressable;
+- damaged regions rebuild locally.
+
+Before combining much larger bodies with much smaller cells, refactor toward:
+
+```text
+VoxelGrid3D
+  -> VoxelChunk3D
+  -> local occupancy + material IDs
+  -> exposed-face / improved surface meshing
+  -> dirty chunk rebuild
+  -> compiled collision
+```
+
+The current 128-resolution dense branch is only an interim comparison and should not be pushed to enormous resolutions.
+
+### 4. Larger planetoid scale
+
+After chunking makes fine cells affordable, increase the main navigable body's radius substantially so the spacecraft feels small relative to it. The starter object should read as a small planetoid / very large asteroid, while the far field can still contain many ordinary small asteroids.
+
+### 5. Re-tune caves after scale is fixed
+
+Keep the Deep-Rock-style principles:
+
+- guaranteed surface entrances;
+- large navigable chambers;
+- branching tunnels;
+- procedural side pockets;
+- no false closed occluder;
+- collision preserving openings.
+
+But re-tune tunnel radius, chamber radius, shell thickness and branch density only after final cell size and planetoid scale are known.
+
+### 6. Cave landmarks / luminous resources
+
+Once material IDs exist, place rare self-emissive or iridescent geological deposits inside the cave system. These give navigation landmarks and later become mining/crafting resources. Caves should not be uniformly bright: ship lights plus sparse geological emission should create contrast.
+
+### 7. Performance / LOD proof
+
+Before populating the world with multiple detailed planetoids, measure:
+
+- chunk generation time;
+- visible triangle count;
+- collision rebuild cost;
+- high-detail streaming distance.
+
+Only nearby bodies should use detailed voxel terrain; distant bodies should stay on cheap proxy meshes / MultiMesh. Greedy meshing or smoother extraction can be added when measurement shows they are needed.
 
 ## What this experiment does not prove yet
 
@@ -90,16 +181,18 @@ Those remain the next stages after this geometry/cavern proof is visually and pe
 
 1. Project parses on the target Godot branch.
 2. Starter asteroid generates without startup errors.
-3. Voxel generation log reports a 64-resolution cavern volume and non-zero carved voxel count.
-4. The asteroid reads as irregular rock rather than a smooth sphere or giant Minecraft blocks.
+3. Voxel generation reports the configured cavern volume and non-zero carved voxel count.
+4. The planetoid reads as irregular rock rather than a smooth sphere or giant Minecraft blocks.
 5. Both marked entrances are visibly open.
 6. Flying through an entrance reaches the central cavern without collision sealing the tunnel.
 7. Branch tunnels reach multiple distinct chambers.
 8. Interior walls are rendered from newly exposed voxel faces.
 9. No obvious false occlusion occurs while looking through or from inside caves.
 10. Startup generation and trimesh collision creation do not cause an unacceptable hitch.
+11. The primary light source is visually obvious and matches the directional illumination.
+12. Ship headlights provide useful cave navigation without flattening the entire cave.
 
-## Runtime smoke result — 2026-09-13
+## Runtime smoke result — original 64-resolution proof, 2026-09-13
 
 Validated locally through AI Local Access using Godot 4.7.1 stable.
 
@@ -122,7 +215,7 @@ The full world then generated 340 asteroids across 150 sectors and the vehicle s
 
 A separate normal Godot window was also launched successfully for visual inspection.
 
-Remaining validation is specifically visual/gameplay inspection of the cave geometry: verify both entrances, fly into the central cavern, traverse branches, and judge whether the cave proportions/readability are close enough to the intended Deep-Rock-like feeling.
+Remaining validation now applies to the newer granular/lighting branch: check the finer surface, sun direction/readability, headlights, cave proportions and performance before proceeding to material IDs and chunk architecture.
 
 One non-fatal resource UID warning remains in the local editor cache for `world_settings.tres`; Godot falls back to the correct text resource path and runtime generation succeeds. This should be cleaned up separately rather than conflated with the cavern implementation.
 
