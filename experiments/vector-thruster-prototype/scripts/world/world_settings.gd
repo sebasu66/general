@@ -17,8 +17,8 @@ extends Resource
 @export_range(200.0, 5000.0, 50.0) var far_visibility_distance: float = 2200.0
 
 @export_group("Voxel Asteroids")
-@export_range(0.5, 8.0, 0.25) var voxel_cell_size: float = 1.25
-@export_range(8, 96, 1) var voxel_resolution: int = 64
+@export_range(0.25, 8.0, 0.05) var voxel_cell_size: float = 0.50
+@export_range(8, 192, 1) var voxel_resolution: int = 128
 @export_range(0.0, 1.0, 0.01) var voxel_surface_noise: float = 0.24
 
 @export_group("Voxel Caverns")
