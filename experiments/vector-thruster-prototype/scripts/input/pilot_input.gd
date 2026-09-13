@@ -10,6 +10,7 @@ const YAW_LEFT: StringName = &"vehicle_yaw_left"
 const YAW_RIGHT: StringName = &"vehicle_yaw_right"
 const STABILIZER_TOGGLE: StringName = &"vehicle_stabilizer_toggle"
 const HOVER_TOGGLE: StringName = &"vehicle_hover_toggle"
+const COMPUTER_TOGGLE: StringName = &"vehicle_computer_toggle"
 const RESET: StringName = &"vehicle_reset"
 const THRUSTER_1: StringName = &"vehicle_thruster_1"
 const THRUSTER_2: StringName = &"vehicle_thruster_2"
@@ -30,6 +31,7 @@ static func ensure_actions() -> void:
 
     _ensure_action_with_defaults(STABILIZER_TOGGLE, 0.2, [_key_event(KEY_F), _button_event(JOY_BUTTON_A)])
     _ensure_action_with_defaults(HOVER_TOGGLE, 0.2, [_key_event(KEY_H), _button_event(JOY_BUTTON_B)])
+    _ensure_action_with_defaults(COMPUTER_TOGGLE, 0.2, [_key_event(KEY_T), _button_event(JOY_BUTTON_X)])
     _ensure_action_with_defaults(RESET, 0.2, [_key_event(KEY_R), _button_event(JOY_BUTTON_Y)])
 
     _ensure_action_with_defaults(THRUSTER_1, 0.2, [_key_event(KEY_1)])

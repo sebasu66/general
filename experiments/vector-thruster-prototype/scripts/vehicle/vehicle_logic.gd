@@ -1,10 +1,6 @@
 class_name VehicleLogic
 extends RigidBody3D
 
-@export_group("Thrusters")
-@export var max_thrust_per_thruster: float = 520.0
-@export_range(1.0, 35.0, 0.5) var max_gimbal_degrees: float = 18.0
-
 @export_group("Attitude Stabilizer")
 @export_range(0.0, 1.0, 0.01) var stabilization_mix: float = 0.96
 @export var stabilization_kp: float = 5.6
@@ -21,9 +17,11 @@ extends RigidBody3D
 @export var hover_kd: float = 0.09
 @export_range(0.05, 0.5, 0.01) var hover_max_correction: float = 0.32
 
-var _thruster_nodes: Array[ThrusterVisual] = []
+var _thruster_nodes: Array[ThrusterLogic] = []
 var _mount_ids: Array[StringName] = []
 var _mount_positions: Array[Vector3] = []
+var _max_thrusts: Array[float] = []
+var _max_gimbals: Array[float] = []
 var _latest_commands: Array[ThrusterCommand] = []
 var _latest_stabilization := StabilizationOutput.new()
 var _latest_input := PilotInputState.new()
@@ -38,7 +36,10 @@ var _reset_requested: bool = false
 var _spawn_transform: Transform3D
 var _debug_snapshot: Dictionary = {}
 
-@onready var _engine_audio: ThrusterAudio = $EngineAudio
+@onready var _computer: ShipComputerLogic = $Components/ShipComputer
+@onready var _pilot_seat: PilotSeatLogic = $Components/PilotSeat
+@onready var _engine: EngineLogic = $Components/MainEngine
+@onready var _power_source: PowerSourceLogic = $Components/SolarBattery
 
 
 func _ready() -> void:
@@ -48,31 +49,19 @@ func _ready() -> void:
     max_contacts_reported = 8
     _spawn_transform = global_transform
     _collect_thrusters()
+    _computer.configure(_pilot_seat, _engine, _power_source, _thruster_nodes)
+    if not _computer.mode_command_dispatched.is_connected(_on_mode_command):
+        _computer.mode_command_dispatched.connect(_on_mode_command)
+    print("[VEHICLE] component architecture online")
     reset_physics_interpolation()
-
-
-func _unhandled_input(event: InputEvent) -> void:
-    if event is InputEventKey and event.echo:
-        return
-
-    if event.is_action_pressed(PilotInput.STABILIZER_TOGGLE):
-        _stabilizer_toggle_requested = true
-        get_viewport().set_input_as_handled()
-
-    if event.is_action_pressed(PilotInput.HOVER_TOGGLE):
-        _hover_toggle_requested = true
-        get_viewport().set_input_as_handled()
-
-    if event.is_action_pressed(PilotInput.RESET):
-        _reset_requested = true
-        get_viewport().set_input_as_handled()
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
     _apply_pending_reset(state)
     _apply_mode_requests(state)
 
-    _latest_input = PilotInput.read_continuous()
+    _computer.tick_power_system(state.step)
+    _latest_input = _computer.sample_pilot_from(_pilot_seat)
     _latest_stabilization = calculate_stabilization(state)
     _latest_controlled_input = calculate_requested_motion(
         state,
@@ -83,13 +72,19 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
         _latest_controlled_input,
         _latest_stabilization
     )
+
+    var total_available := ThrusterLibrary.total_available_thrust(_max_thrusts)
+    var requested_thrust := ThrusterLibrary.total_requested_thrust(_latest_commands)
+    var requested_engine_ratio := requested_thrust / maxf(total_available, 0.001)
+    _computer.request_engine_power(requested_engine_ratio, state.step)
+    var supply_fraction := _computer.get_engine_supply_fraction(requested_engine_ratio)
+    ThrusterLibrary.apply_power_fraction(_latest_commands, supply_fraction)
+
+    for command: ThrusterCommand in _latest_commands:
+        _computer.route_thruster_command(command)
+
     apply_thruster_forces(state, _latest_commands)
-    update_debug_metrics(state, _latest_commands)
-
-
-func _physics_process(_delta: float) -> void:
-    update_thruster_visuals(_latest_commands)
-    update_engine_audio(_latest_commands)
+    update_debug_metrics(state)
 
 
 func calculate_stabilization(state: PhysicsDirectBodyState3D) -> StabilizationOutput:
@@ -140,13 +135,12 @@ func calculate_requested_lift(
         _hover_auto_throttle = manual_lift
         return manual_lift
 
-    var thruster_count := maxi(_thruster_nodes.size(), 1)
-    var total_available := max_thrust_per_thruster * float(thruster_count)
+    var total_available := ThrusterLibrary.total_available_thrust(_max_thrusts)
     var gravity_force := mass * state.total_gravity.length()
     var body_up := state.transform.basis.orthonormalized().y.normalized()
     var upright_component := maxf(body_up.dot(Vector3.UP), 0.40)
     var gimbal_component := cos(
-        deg_to_rad(max_gimbal_degrees) * clampf(controlled_move.length(), 0.0, 1.0)
+        deg_to_rad(_average_max_gimbal()) * clampf(controlled_move.length(), 0.0, 1.0)
     )
     var vertical_authority := maxf(upright_component * gimbal_component, 0.35)
     var neutral_hover := gravity_force / maxf(total_available * vertical_authority, 0.001)
@@ -169,10 +163,10 @@ func distribute_power_to_thrusters(
     return ThrusterLibrary.build_commands(
         _mount_ids,
         _mount_positions,
+        _max_thrusts,
+        _max_gimbals,
         pilot,
         stabilization,
-        max_thrust_per_thruster,
-        max_gimbal_degrees,
         stabilization_mix,
         max_stabilization_throttle
     )
@@ -190,75 +184,16 @@ func apply_thruster_forces(
         state.apply_force(world_force, world_offset)
 
 
-func update_thruster_visuals(commands: Array[ThrusterCommand]) -> void:
-    var count := mini(commands.size(), _thruster_nodes.size())
-    for index: int in range(count):
-        var ratio := commands[index].effective_thrust / maxf(max_thrust_per_thruster, 0.001)
-        _thruster_nodes[index].set_output(commands[index].local_direction, ratio)
-
-
-func update_engine_audio(commands: Array[ThrusterCommand]) -> void:
-    if _engine_audio == null:
-        return
-    var total_available := max_thrust_per_thruster * float(maxi(_thruster_nodes.size(), 1))
-    var ratio := ThrusterLibrary.total_thrust(commands) / maxf(total_available, 0.001)
-    _engine_audio.set_intensity(ratio)
-
-
-func update_debug_metrics(
-        state: PhysicsDirectBodyState3D,
-        commands: Array[ThrusterCommand]
-) -> void:
-    var orientation_radians := state.transform.basis.orthonormalized().get_euler()
-    var orientation_degrees := Vector3(
-        rad_to_deg(orientation_radians.x),
-        rad_to_deg(orientation_radians.y),
-        rad_to_deg(orientation_radians.z)
-    )
-
-    var thruster_metrics: Array[Dictionary] = []
-    for command: ThrusterCommand in commands:
-        thruster_metrics.append({
-            "id": command.mount_id,
-            "base_throttle": command.base_throttle,
-            "stabilization": command.stabilization_correction,
-            "manual_boost": command.manual_boost,
-            "effective_throttle": command.effective_throttle,
-            "thrust": command.effective_thrust,
-            "max_thrust": max_thrust_per_thruster,
-            "gimbal_degrees": command.gimbal_degrees,
-            "direction": command.local_direction,
-        })
-
+func update_debug_metrics(state: PhysicsDirectBodyState3D) -> void:
+    var power_snapshot := _power_source.get_snapshot()
+    var engine_snapshot := _engine.get_snapshot()
     _debug_snapshot = {
-        "mass": mass,
-        "gravity_acceleration": state.total_gravity.length(),
-        "gravity_force": mass * state.total_gravity.length(),
-        "hover_throttle_estimate": (mass * state.total_gravity.length()) / maxf(max_thrust_per_thruster * float(_thruster_nodes.size()), 0.001),
-        "lift_input": _latest_input.lift,
-        "controlled_lift": _latest_controlled_input.lift,
-        "move_input": _latest_input.move,
-        "controlled_move": _latest_controlled_input.move,
-        "yaw_input": _latest_input.yaw,
-        "linear_velocity": state.linear_velocity,
-        "speed": state.linear_velocity.length(),
-        "vertical_speed": state.linear_velocity.y,
-        "altitude": state.transform.origin.y,
-        "angular_velocity": state.angular_velocity,
-        "orientation_degrees": orientation_degrees,
-        "total_available_thrust": max_thrust_per_thruster * float(_thruster_nodes.size()),
-        "total_actual_thrust": ThrusterLibrary.total_thrust(commands),
         "stabilizer_enabled": _stabilizer_enabled,
-        "stabilizer_level_error": _latest_stabilization.level_error_local,
-        "stabilizer_command": _latest_stabilization.level_command,
-        "stabilizer_strength": _latest_stabilization.correction_strength,
-        "tilt_degrees": _latest_stabilization.tilt_degrees,
-        "tilt_guard": _latest_stabilization.tilt_guard,
-        "pilot_move_authority": _latest_stabilization.pilot_move_authority,
         "hover_enabled": _hover_enabled,
         "hover_target_altitude": _hover_target_altitude,
-        "hover_auto_throttle": _hover_auto_throttle,
-        "thrusters": thruster_metrics,
+        "altitude": state.transform.origin.y,
+        "battery_ratio": float(power_snapshot.get("battery_ratio", 0.0)),
+        "engine_output_ratio": float(engine_snapshot.get("actual_output_ratio", 0.0)),
     }
 
 
@@ -266,20 +201,56 @@ func get_debug_snapshot() -> Dictionary:
     return _debug_snapshot.duplicate(true)
 
 
+func get_engine_component() -> EngineLogic:
+    return _engine
+
+
+func get_power_source_component() -> PowerSourceLogic:
+    return _power_source
+
+
+func get_ship_computer() -> ShipComputerLogic:
+    return _computer
+
+
 func _collect_thrusters() -> void:
     _thruster_nodes.clear()
     _mount_ids.clear()
     _mount_positions.clear()
+    _max_thrusts.clear()
+    _max_gimbals.clear()
 
     for child: Node in $Thrusters.get_children():
-        if child is ThrusterVisual:
-            var thruster := child as ThrusterVisual
+        if child is ThrusterLogic:
+            var thruster := child as ThrusterLogic
             _thruster_nodes.append(thruster)
             _mount_ids.append(thruster.mount_id)
             _mount_positions.append(thruster.position)
+            _max_thrusts.append(thruster.max_thrust)
+            _max_gimbals.append(thruster.max_gimbal_degrees)
 
     if _thruster_nodes.size() != 4:
-        push_warning("Prototype expects exactly four thrusters; found %d." % _thruster_nodes.size())
+        push_warning("Prototype expects exactly four thruster components; found %d." % _thruster_nodes.size())
+
+
+func _average_max_gimbal() -> float:
+    if _max_gimbals.is_empty():
+        return 18.0
+    var total := 0.0
+    for value: float in _max_gimbals:
+        total += value
+    return total / float(_max_gimbals.size())
+
+
+func _on_mode_command(command: StringName) -> void:
+    print("[VEHICLE] LISTENER mode_command %s" % String(command))
+    match command:
+        &"stabilizer_toggle":
+            _stabilizer_toggle_requested = true
+        &"hover_toggle":
+            _hover_toggle_requested = true
+        &"reset":
+            _reset_requested = true
 
 
 func _apply_mode_requests(state: PhysicsDirectBodyState3D) -> void:

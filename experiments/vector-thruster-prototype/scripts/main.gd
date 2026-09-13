@@ -5,6 +5,9 @@ const BASE_CONTENT_SIZE := Vector2i(1600, 900)
 @onready var vehicle: VehicleLogic = $Vehicle
 @onready var follow_camera: PrototypeFollowCamera = $FollowCamera
 @onready var hud: DebugHUD = $HUD
+@onready var engine_ui: EngineUI = $EngineUI
+@onready var power_ui: PowerSourceUI = $PowerUI
+@onready var computer_ui: ShipComputerUI = $ComputerUI
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 
 
@@ -15,6 +18,9 @@ func _ready() -> void:
     follow_camera.target = vehicle
     follow_camera.snap_to_target()
     hud.bind(vehicle)
+    engine_ui.bind(vehicle.get_engine_component())
+    power_ui.bind(vehicle.get_power_source_component())
+    computer_ui.bind(vehicle.get_ship_computer())
 
 
 func _configure_window_scaling() -> void:
@@ -26,11 +32,26 @@ func _configure_window_scaling() -> void:
 
 
 func _configure_environment() -> void:
+    var sky_material := PhysicalSkyMaterial.new()
+    sky_material.turbidity = 5.5
+    sky_material.ground_color = Color(0.08, 0.065, 0.05, 1.0)
+    sky_material.energy_multiplier = 0.82
+
+    var sky := Sky.new()
+    sky.sky_material = sky_material
+
     var environment := Environment.new()
-    environment.background_mode = Environment.BG_COLOR
-    environment.background_color = Color(0.018, 0.026, 0.045, 1.0)
-    environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    environment.ambient_light_color = Color(0.42, 0.50, 0.64, 1.0)
-    environment.ambient_light_energy = 0.68
+    environment.background_mode = Environment.BG_SKY
+    environment.sky = sky
+    environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+    environment.ambient_light_energy = 0.34
+    environment.ambient_light_sky_contribution = 0.62
     environment.tonemap_mode = Environment.TONE_MAPPER_ACES
+    environment.ssao_enabled = true
+    environment.ssao_radius = 2.2
+    environment.ssao_intensity = 2.2
+    environment.ssil_enabled = true
+    environment.ssil_intensity = 0.7
+    environment.volumetric_fog_enabled = true
+    environment.volumetric_fog_density = 0.004
     world_environment.environment = environment

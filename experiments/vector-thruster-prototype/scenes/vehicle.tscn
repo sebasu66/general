@@ -1,8 +1,11 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_logic.gd" id="1_vehicle"]
-[ext_resource type="Script" path="res://scripts/visuals/thruster_visual.gd" id="2_thruster"]
-[ext_resource type="Script" path="res://scripts/audio/thruster_audio.gd" id="3_audio"]
+[ext_resource type="Script" path="res://scripts/thrusters/thruster_logic.gd" id="2_thruster"]
+[ext_resource type="Script" path="res://scripts/computer/ship_computer_logic.gd" id="3_computer"]
+[ext_resource type="Script" path="res://scripts/pilot/pilot_seat_logic.gd" id="4_pilot"]
+[ext_resource type="Script" path="res://scripts/engine/engine_logic.gd" id="5_engine"]
+[ext_resource type="Script" path="res://scripts/power/power_source_logic.gd" id="6_power"]
 
 [sub_resource type="StandardMaterial3D" id="Material_body"]
 albedo_color = Color(0.18, 0.28, 0.40, 1)
@@ -23,19 +26,7 @@ roughness = 0.12
 
 [sub_resource type="BoxMesh" id="Mesh_cockpit"]
 material = SubResource("Material_cockpit")
-size = Vector3(1.45, 0.58, 1.55)
-
-[sub_resource type="StandardMaterial3D" id="Material_core"]
-albedo_color = Color(0.06, 0.34, 0.62, 1)
-emission_enabled = true
-emission = Color(0.02, 0.28, 0.85, 1)
-emission_energy_multiplier = 3.5
-roughness = 0.20
-
-[sub_resource type="SphereMesh" id="Mesh_core"]
-material = SubResource("Material_core")
-radius = 0.38
-height = 0.76
+size = Vector3(1.55, 0.42, 1.70)
 
 [node name="Vehicle" type="RigidBody3D"]
 mass = 120.0
@@ -52,16 +43,28 @@ mesh = SubResource("Mesh_body")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("Shape_body")
 
-[node name="Cockpit" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.54, -0.38)
+[node name="CockpitShell" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.48, -0.42)
 mesh = SubResource("Mesh_cockpit")
 
-[node name="PowerCore" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.47, 1.05)
-mesh = SubResource("Mesh_core")
+[node name="Components" type="Node3D" parent="."]
 
-[node name="EngineAudio" type="AudioStreamPlayer" parent="."]
-script = ExtResource("3_audio")
+[node name="PilotSeat" type="Node3D" parent="Components"]
+position = Vector3(0, 0.38, -0.62)
+script = ExtResource("4_pilot")
+
+[node name="ShipComputer" type="Node3D" parent="Components"]
+position = Vector3(0.82, 0.54, -0.62)
+rotation_degrees = Vector3(0, -18, 0)
+script = ExtResource("3_computer")
+
+[node name="MainEngine" type="Node3D" parent="Components"]
+position = Vector3(0, 0.18, 1.04)
+script = ExtResource("5_engine")
+
+[node name="SolarBattery" type="Node3D" parent="Components"]
+position = Vector3(0, 0.68, 1.08)
+script = ExtResource("6_power")
 
 [node name="Thrusters" type="Node3D" parent="."]
 
@@ -69,18 +72,26 @@ script = ExtResource("3_audio")
 position = Vector3(-1.72, -0.12, -1.48)
 script = ExtResource("2_thruster")
 mount_id = &"FL"
+max_thrust = 520.0
+max_gimbal_degrees = 18.0
 
 [node name="FrontRight" type="Node3D" parent="Thrusters"]
 position = Vector3(1.72, -0.12, -1.48)
 script = ExtResource("2_thruster")
 mount_id = &"FR"
+max_thrust = 520.0
+max_gimbal_degrees = 18.0
 
 [node name="RearLeft" type="Node3D" parent="Thrusters"]
 position = Vector3(-1.72, -0.12, 1.48)
 script = ExtResource("2_thruster")
 mount_id = &"RL"
+max_thrust = 520.0
+max_gimbal_degrees = 18.0
 
 [node name="RearRight" type="Node3D" parent="Thrusters"]
 position = Vector3(1.72, -0.12, 1.48)
 script = ExtResource("2_thruster")
 mount_id = &"RR"
+max_thrust = 520.0
+max_gimbal_degrees = 18.0

@@ -8,10 +8,10 @@ const YAW_VECTOR_WEIGHT: float = 0.62
 static func build_commands(
         mount_ids: Array[StringName],
         mount_positions: Array[Vector3],
+        max_thrusts: Array[float],
+        max_gimbal_degrees: Array[float],
         pilot: PilotInputState,
         stabilization: StabilizationOutput,
-        max_thrust_per_thruster: float,
-        max_gimbal_degrees: float,
         stabilization_mix: float,
         max_stabilization_throttle: float
 ) -> Array[ThrusterCommand]:
@@ -22,9 +22,12 @@ static func build_commands(
 
     for index: int in range(mount_positions.size()):
         var mount := mount_positions[index]
+        var max_thrust := _float_at(max_thrusts, index, 520.0)
+        var max_gimbal := _float_at(max_gimbal_degrees, index, 18.0)
         var command := ThrusterCommand.new()
         command.mount_id = mount_ids[index]
         command.local_position = mount
+        command.max_thrust = max_thrust
         command.base_throttle = pilot.lift
         command.stabilization_correction = _calculate_level_throttle_correction(
             mount,
@@ -34,22 +37,34 @@ static func build_commands(
             max_stabilization_throttle
         ) * stabilization_mix
         command.manual_boost = _manual_boost_at(pilot, index) * MANUAL_DIAGNOSTIC_BOOST
-        command.effective_throttle = clampf(
+        command.requested_throttle = clampf(
             command.base_throttle + command.stabilization_correction + command.manual_boost,
             0.0,
             1.0
         )
+        command.effective_throttle = command.requested_throttle
         command.local_direction = calculate_thrust_direction(
             pilot.move,
             effective_yaw,
             mount,
-            max_gimbal_degrees
+            max_gimbal
         )
-        command.effective_thrust = command.effective_throttle * max_thrust_per_thruster
+        command.effective_thrust = command.effective_throttle * command.max_thrust
         command.gimbal_degrees = rad_to_deg(acos(clampf(command.local_direction.dot(Vector3.UP), -1.0, 1.0)))
         commands.append(command)
 
     return commands
+
+
+static func apply_power_fraction(
+        commands: Array[ThrusterCommand],
+        supply_fraction: float
+) -> void:
+    var fraction := clampf(supply_fraction, 0.0, 1.0)
+    for command: ThrusterCommand in commands:
+        command.power_fraction = fraction
+        command.effective_throttle = command.requested_throttle * fraction
+        command.effective_thrust = command.effective_throttle * command.max_thrust
 
 
 static func calculate_thrust_direction(
@@ -87,6 +102,20 @@ static func total_thrust(commands: Array[ThrusterCommand]) -> float:
     return total
 
 
+static func total_requested_thrust(commands: Array[ThrusterCommand]) -> float:
+    var total := 0.0
+    for command: ThrusterCommand in commands:
+        total += command.requested_throttle * command.max_thrust
+    return total
+
+
+static func total_available_thrust(max_thrusts: Array[float]) -> float:
+    var total := 0.0
+    for value: float in max_thrusts:
+        total += maxf(value, 0.0)
+    return total
+
+
 static func _calculate_level_throttle_correction(
         mount: Vector3,
         max_x: float,
@@ -117,3 +146,9 @@ static func _manual_boost_at(pilot: PilotInputState, index: int) -> float:
     if index < 0 or index >= pilot.manual_thruster_boosts.size():
         return 0.0
     return pilot.manual_thruster_boosts[index]
+
+
+static func _float_at(values: Array[float], index: int, fallback: float) -> float:
+    if index < 0 or index >= values.size():
+        return fallback
+    return values[index]
