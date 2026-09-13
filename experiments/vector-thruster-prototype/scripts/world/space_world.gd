@@ -139,7 +139,13 @@ func _build_starter_asteroid() -> void:
         settings.voxel_cell_size,
         settings.world_seed + 9001,
         settings.voxel_surface_noise,
-        _rock_material
+        _rock_material,
+        settings.voxel_caves_enabled,
+        settings.voxel_cave_noise_frequency,
+        settings.voxel_cave_threshold,
+        settings.voxel_cave_shell_thickness,
+        settings.voxel_cave_tunnel_radius,
+        settings.voxel_cave_chamber_radius
     )
 
     var mesh_instance := MeshInstance3D.new()
@@ -150,18 +156,61 @@ func _build_starter_asteroid() -> void:
     body.add_child(mesh_instance)
 
     var collision := CollisionShape3D.new()
-    collision.name = "SurfaceCollision"
+    collision.name = "SurfaceAndCavernCollision"
     collision.shape = mesh.create_trimesh_shape()
     body.add_child(collision)
 
-    var occluder_instance := OccluderInstance3D.new()
-    occluder_instance.name = "SimpleSphereOccluder"
-    var occluder := SphereOccluder3D.new()
-    occluder.radius = _starter_asteroid_radius * 0.86
-    occluder_instance.occluder = occluder
-    body.add_child(occluder_instance)
+    # A closed spherical occluder is useful for a solid asteroid but would
+    # incorrectly treat the new cave volume as filled rock. Disable it for the
+    # cavern prototype so interior passages remain renderable from inside.
+    if not settings.voxel_caves_enabled:
+        var occluder_instance := OccluderInstance3D.new()
+        occluder_instance.name = "SimpleSphereOccluder"
+        var occluder := SphereOccluder3D.new()
+        occluder.radius = _starter_asteroid_radius * 0.86
+        occluder_instance.occluder = occluder
+        body.add_child(occluder_instance)
+    else:
+        _add_cave_entrance_beacons(body)
 
     _add_gravity_zone(body, _starter_asteroid_radius)
+
+
+func _add_cave_entrance_beacons(parent: Node3D) -> void:
+    var entrances := VoxelAsteroidMesher.get_cavern_entrances(_starter_asteroid_radius)
+    var colors: Array[Color] = [
+        Color(1.0, 0.54, 0.14, 1.0),
+        Color(0.18, 0.72, 1.0, 1.0),
+    ]
+
+    for index: int in range(entrances.size()):
+        var beacon_mesh := SphereMesh.new()
+        beacon_mesh.radius = 0.8
+        beacon_mesh.height = 1.6
+
+        var beacon_material := StandardMaterial3D.new()
+        beacon_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        beacon_material.albedo_color = colors[index % colors.size()]
+        beacon_material.emission_enabled = true
+        beacon_material.emission = colors[index % colors.size()]
+        beacon_material.emission_energy_multiplier = 5.0
+        beacon_mesh.material = beacon_material
+
+        var beacon := MeshInstance3D.new()
+        beacon.name = "CaveEntranceBeacon_%d" % index
+        beacon.mesh = beacon_mesh
+        beacon.position = entrances[index]
+        beacon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        parent.add_child(beacon)
+
+        var light := OmniLight3D.new()
+        light.name = "CaveEntranceLight_%d" % index
+        light.position = entrances[index]
+        light.light_color = colors[index % colors.size()]
+        light.light_energy = 3.0
+        light.omni_range = 12.0
+        light.shadow_enabled = false
+        parent.add_child(light)
 
 
 func _generate_asteroid_records() -> void:

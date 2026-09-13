@@ -17,9 +17,17 @@ extends Resource
 @export_range(200.0, 5000.0, 50.0) var far_visibility_distance: float = 2200.0
 
 @export_group("Voxel Asteroids")
-@export_range(0.5, 8.0, 0.25) var voxel_cell_size: float = 2.5
-@export_range(8, 64, 1) var voxel_resolution: int = 24
+@export_range(0.5, 8.0, 0.25) var voxel_cell_size: float = 1.25
+@export_range(8, 96, 1) var voxel_resolution: int = 64
 @export_range(0.0, 1.0, 0.01) var voxel_surface_noise: float = 0.24
+
+@export_group("Voxel Caverns")
+@export var voxel_caves_enabled: bool = true
+@export_range(0.02, 0.25, 0.005) var voxel_cave_noise_frequency: float = 0.085
+@export_range(0.0, 0.9, 0.01) var voxel_cave_threshold: float = 0.50
+@export_range(1.0, 20.0, 0.5) var voxel_cave_shell_thickness: float = 5.0
+@export_range(2.0, 16.0, 0.5) var voxel_cave_tunnel_radius: float = 5.5
+@export_range(4.0, 24.0, 0.5) var voxel_cave_chamber_radius: float = 10.0
 
 @export_group("Gravity")
 @export_range(0.1, 30.0, 0.1) var asteroid_surface_gravity: float = 5.2
