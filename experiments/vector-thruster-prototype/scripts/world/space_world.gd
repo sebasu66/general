@@ -1,6 +1,10 @@
 class_name SpaceWorld
 extends Node3D
 
+const ROCK_DIFFUSE: Texture2D = preload("res://assets/materials/polyhaven/rock_surface/rock_surface_diff_1k.jpg")
+const ROCK_NORMAL: Texture2D = preload("res://assets/materials/polyhaven/rock_surface/rock_surface_nor_gl_1k.jpg")
+const ROCK_ROUGHNESS: Texture2D = preload("res://assets/materials/polyhaven/rock_surface/rock_surface_rough_1k.jpg")
+
 @export var settings: WorldSettings
 
 var _generated: bool = false
@@ -359,8 +363,12 @@ func _consider_gravity_source(
 
 func _create_rock_material() -> StandardMaterial3D:
     var material := StandardMaterial3D.new()
-    material.albedo_color = Color.WHITE
+    material.albedo_color = Color(0.72, 0.69, 0.65, 1.0)
+    material.albedo_texture = ROCK_DIFFUSE
     material.vertex_color_use_as_albedo = true
-    material.metallic = 0.12
-    material.roughness = 0.88
+    material.normal_enabled = true
+    material.normal_texture = ROCK_NORMAL
+    material.roughness = 1.0
+    material.roughness_texture = ROCK_ROUGHNESS
+    material.metallic = 0.08
     return material

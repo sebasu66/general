@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_logic.gd" id="1_vehicle"]
 [ext_resource type="Script" path="res://scripts/thrusters/thruster_logic.gd" id="2_thruster"]
@@ -6,11 +6,20 @@
 [ext_resource type="Script" path="res://scripts/pilot/pilot_seat_logic.gd" id="4_pilot"]
 [ext_resource type="Script" path="res://scripts/engine/engine_logic.gd" id="5_engine"]
 [ext_resource type="Script" path="res://scripts/power/power_source_logic.gd" id="6_power"]
+[ext_resource type="Texture2D" path="res://assets/materials/polyhaven/metal_plate_02/metal_plate_02_diff_1k.jpg" id="7_metal_diff"]
+[ext_resource type="Texture2D" path="res://assets/materials/polyhaven/metal_plate_02/metal_plate_02_metal_1k.jpg" id="8_metal_map"]
+[ext_resource type="Texture2D" path="res://assets/materials/polyhaven/metal_plate_02/metal_plate_02_rough_1k.jpg" id="9_metal_rough"]
+[ext_resource type="Texture2D" path="res://assets/materials/polyhaven/metal_plate_02/metal_plate_02_nor_gl_1k.jpg" id="10_metal_normal"]
 
 [sub_resource type="StandardMaterial3D" id="Material_hull"]
-albedo_color = Color(0.16, 0.21, 0.29, 1)
+albedo_color = Color(0.62, 0.70, 0.82, 1)
+albedo_texture = ExtResource("7_metal_diff")
 metallic = 0.82
-roughness = 0.27
+metallic_texture = ExtResource("8_metal_map")
+roughness = 0.72
+roughness_texture = ExtResource("9_metal_rough")
+normal_enabled = true
+normal_texture = ExtResource("10_metal_normal")
 
 [sub_resource type="StandardMaterial3D" id="Material_accent"]
 albedo_color = Color(0.40, 0.18, 0.055, 1)
