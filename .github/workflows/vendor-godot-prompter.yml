@@ -1,0 +1,67 @@
+name: Vendor GodotPrompter skills
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/vendor-godot-prompter.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout General
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch pinned GodotPrompter source
+        shell: bash
+        run: |
+          set -euo pipefail
+          UPSTREAM_REPO="https://github.com/jame581/GodotPrompter.git"
+          UPSTREAM_COMMIT="eae755a1f3719076d52f50ab76f21993ebb9682b"
+          DEST="docs/godot-skills/upstream/GodotPrompter"
+
+          rm -rf /tmp/GodotPrompter
+          git clone --filter=blob:none --no-checkout "$UPSTREAM_REPO" /tmp/GodotPrompter
+          git -C /tmp/GodotPrompter checkout --detach "$UPSTREAM_COMMIT"
+
+          rm -rf "$DEST"
+          mkdir -p "$DEST"
+          cp -R /tmp/GodotPrompter/skills "$DEST/skills"
+          cp /tmp/GodotPrompter/LICENSE "$DEST/LICENSE"
+
+          cat > "$DEST/SOURCE.md" <<'EOF'
+          # Vendored GodotPrompter skills
+
+          Source repository: `https://github.com/jame581/GodotPrompter`
+
+          Pinned upstream commit: `eae755a1f3719076d52f50ab76f21993ebb9682b`
+
+          This directory contains the complete upstream `skills/` tree, including every `SKILL.md` and every reference file present at the pinned commit. The upstream `LICENSE` is copied alongside it.
+
+          These files are vendored so agents working on this repository can read the relevant Godot guidance before implementation without depending on the upstream repository remaining unchanged.
+          EOF
+
+          skill_count=$(find "$DEST/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+          echo "Vendored top-level skills: $skill_count"
+          test "$skill_count" -ge 50
+
+      - name: Commit vendored skills
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/godot-skills/upstream/GodotPrompter
+          if git diff --cached --quiet; then
+            echo "Vendored skills already match the pinned upstream commit."
+            exit 0
+          fi
+          git commit -m "docs: vendor complete GodotPrompter skills [skip ci]"
+          git push origin HEAD:main
