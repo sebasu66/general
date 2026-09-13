@@ -48,7 +48,7 @@ static func read_continuous() -> PilotInputState:
     return state
 
 
-static func _ensure_action_with_defaults(action: StringName, deadzone: float, events: Array[InputEvent]) -> void:
+static func _ensure_action_with_defaults(action: StringName, deadzone: float, events: Array) -> void:
     if not InputMap.has_action(action):
         InputMap.add_action(action, deadzone)
     else:
