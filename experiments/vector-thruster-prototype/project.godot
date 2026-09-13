@@ -25,4 +25,5 @@ common/physics_interpolation=true
 [rendering]
 renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="mobile"
+occlusion_culling/use_occlusion_culling=true
 environment/defaults/default_clear_color=Color(0.0015, 0.0025, 0.0075, 1)

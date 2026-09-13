@@ -8,6 +8,8 @@ var _rng := RandomNumberGenerator.new()
 var _starter_asteroid_center := Vector3.ZERO
 var _starter_asteroid_radius: float = 42.0
 var _rock_material: StandardMaterial3D
+var _asteroid_records: Array[Dictionary] = []
+var _sector_nodes: Dictionary = {}
 
 
 func ensure_generated() -> void:
@@ -17,19 +19,22 @@ func ensure_generated() -> void:
         push_error("SpaceWorld requires a WorldSettings resource.")
         return
 
+    get_tree().root.use_occlusion_culling = true
     _rng.seed = settings.world_seed
     _starter_asteroid_radius = settings.starter_asteroid_radius
     _rock_material = _create_rock_material()
 
     _build_starter_asteroid()
-    _build_far_asteroid_field()
+    _generate_asteroid_records()
+    _build_far_asteroid_sectors()
     _build_star_field()
     _generated = true
 
     print(
-        "[SPACE_WORLD] generated seed=%d asteroids=%d radius=%.0fm" % [
+        "[SPACE_WORLD] generated seed=%d asteroids=%d sectors=%d radius=%.0fm" % [
             settings.world_seed,
             settings.asteroid_count,
+            _sector_nodes.size(),
             settings.field_radius,
         ]
     )
@@ -53,6 +58,13 @@ func get_starter_asteroid_center() -> Vector3:
 
 func get_starter_asteroid_radius() -> float:
     return _starter_asteroid_radius
+
+
+func get_asteroid_records() -> Array[Dictionary]:
+    var copy: Array[Dictionary] = []
+    for record: Dictionary in _asteroid_records:
+        copy.append(record.duplicate(true))
+    return copy
 
 
 func build_environment() -> Environment:
@@ -79,43 +91,41 @@ func _build_starter_asteroid() -> void:
     body.position = _starter_asteroid_center
     add_child(body)
 
+    var mesh := VoxelAsteroidMesher.build_mesh(
+        _starter_asteroid_radius,
+        settings.voxel_resolution,
+        settings.voxel_cell_size,
+        settings.world_seed + 9001,
+        settings.voxel_surface_noise,
+        _rock_material
+    )
+
     var mesh_instance := MeshInstance3D.new()
-    mesh_instance.name = "RockMesh"
-    var mesh := SphereMesh.new()
-    mesh.radius = _starter_asteroid_radius
-    mesh.height = _starter_asteroid_radius * 2.0
-    mesh.radial_segments = 18
-    mesh.rings = 10
-    mesh.material = _rock_material
+    mesh_instance.name = "VoxelRockMesh"
     mesh_instance.mesh = mesh
-    mesh_instance.scale = Vector3(1.12, 0.88, 1.0)
+    mesh_instance.visibility_range_end = settings.detailed_distance * 1.8
+    mesh_instance.extra_cull_margin = 0.0
     body.add_child(mesh_instance)
 
     var collision := CollisionShape3D.new()
-    collision.name = "Collision"
-    var shape := SphereShape3D.new()
-    shape.radius = _starter_asteroid_radius * 0.90
-    collision.shape = shape
+    collision.name = "SurfaceCollision"
+    collision.shape = mesh.create_trimesh_shape()
     body.add_child(collision)
 
+    var occluder_instance := OccluderInstance3D.new()
+    occluder_instance.name = "SimpleSphereOccluder"
+    var occluder := SphereOccluder3D.new()
+    occluder.radius = _starter_asteroid_radius * 0.86
+    occluder_instance.occluder = occluder
+    body.add_child(occluder_instance)
 
-func _build_far_asteroid_field() -> void:
-    var base_mesh := SphereMesh.new()
-    base_mesh.radius = 1.0
-    base_mesh.height = 2.0
-    base_mesh.radial_segments = 8
-    base_mesh.rings = 5
-    base_mesh.material = _rock_material
 
-    var multimesh := MultiMesh.new()
-    multimesh.transform_format = MultiMesh.TRANSFORM_3D
-    multimesh.mesh = base_mesh
-    multimesh.instance_count = settings.asteroid_count
-
-    var written := 0
+func _generate_asteroid_records() -> void:
+    _asteroid_records.clear()
     var attempts := 0
     var exclusion_radius := _starter_asteroid_radius * 3.4
-    while written < settings.asteroid_count and attempts < settings.asteroid_count * 20:
+
+    while _asteroid_records.size() < settings.asteroid_count and attempts < settings.asteroid_count * 30:
         attempts += 1
         var position := Vector3(
             _rng.randf_range(-settings.field_radius, settings.field_radius),
@@ -136,19 +146,62 @@ func _build_far_asteroid_field() -> void:
             _rng.randf_range(0.0, TAU),
             _rng.randf_range(0.0, TAU)
         )
-        var basis := Basis.from_euler(rotation).scaled(stretch * radius)
-        multimesh.set_instance_transform(written, Transform3D(basis, position))
-        written += 1
+        var sector := Vector3i(
+            floori(position.x / settings.sector_size),
+            floori(position.y / settings.sector_size),
+            floori(position.z / settings.sector_size)
+        )
 
-    if written < settings.asteroid_count:
-        multimesh.visible_instance_count = written
+        _asteroid_records.append({
+            "center": position,
+            "radius": radius,
+            "stretch": stretch,
+            "rotation": rotation,
+            "sector": sector,
+        })
 
-    var field := MultiMeshInstance3D.new()
-    field.name = "FarAsteroidField"
-    field.multimesh = multimesh
-    field.visibility_range_end = settings.far_visibility_distance
-    field.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-    add_child(field)
+
+func _build_far_asteroid_sectors() -> void:
+    var grouped: Dictionary = {}
+    for record: Dictionary in _asteroid_records:
+        var sector: Vector3i = record["sector"]
+        if not grouped.has(sector):
+            grouped[sector] = []
+        var sector_records: Array = grouped[sector]
+        sector_records.append(record)
+
+    var base_mesh := SphereMesh.new()
+    base_mesh.radius = 1.0
+    base_mesh.height = 2.0
+    base_mesh.radial_segments = 8
+    base_mesh.rings = 5
+    base_mesh.material = _rock_material
+
+    for sector_key: Variant in grouped.keys():
+        var sector: Vector3i = sector_key
+        var records: Array = grouped[sector]
+        var multimesh := MultiMesh.new()
+        multimesh.transform_format = MultiMesh.TRANSFORM_3D
+        multimesh.mesh = base_mesh
+        multimesh.instance_count = records.size()
+
+        for index: int in range(records.size()):
+            var record: Dictionary = records[index]
+            var radius: float = record["radius"]
+            var stretch: Vector3 = record["stretch"]
+            var rotation: Vector3 = record["rotation"]
+            var center: Vector3 = record["center"]
+            var basis := Basis.from_euler(rotation).scaled(stretch * radius)
+            multimesh.set_instance_transform(index, Transform3D(basis, center))
+
+        var field := MultiMeshInstance3D.new()
+        field.name = "AsteroidSector_%d_%d_%d" % [sector.x, sector.y, sector.z]
+        field.multimesh = multimesh
+        field.visibility_range_end = settings.far_visibility_distance
+        field.extra_cull_margin = 0.0
+        field.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+        add_child(field)
+        _sector_nodes[sector] = field
 
 
 func _build_star_field() -> void:
@@ -191,7 +244,8 @@ func _build_star_field() -> void:
 
 func _create_rock_material() -> StandardMaterial3D:
     var material := StandardMaterial3D.new()
-    material.albedo_color = Color(0.17, 0.155, 0.145, 1.0)
-    material.metallic = 0.08
-    material.roughness = 0.92
+    material.albedo_color = Color.WHITE
+    material.vertex_color_use_as_albedo = true
+    material.metallic = 0.12
+    material.roughness = 0.88
     return material
