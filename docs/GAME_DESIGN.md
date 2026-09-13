@@ -448,6 +448,95 @@ For the runtime construction editor, reimplement the required interaction and da
 
 The parts most worth reproducing independently are selection, material palette UX, edit-operation architecture, undo/redo and preview-vs-final rebuild behavior.
 
+## Godot Foundation Voxel Game Demo evaluation
+
+Candidate/reference:
+
+- Godot Foundation — **Voxel Game Demo**
+- Source: `godotengine/godot-demo-projects/3d/voxel`
+- License: MIT for the demo code; bundled third-party textures have their own licenses.
+- Godot 4.7 Asset Store demo.
+
+This demo is valuable primarily as a **small, readable reference implementation of chunked editable voxel data using only built-in Godot/GDScript APIs**. Its block size is intentionally Minecraft-like and is not the visual scale desired for the spacecraft hull, but the core coordinate/chunk/meshing logic is transferable to much smaller voxels.
+
+### Useful implementation patterns
+
+The demo stores each chunk as a `Dictionary[Vector3i, int]`, where the integer is the block/material ID. Its chunks are 16x16x16 and are addressed separately from local voxel coordinates. This maps cleanly to our desired model:
+
+```text
+ShipVoxelGrid
+  chunk_coord -> ShipVoxelChunk
+
+ShipVoxelChunk
+  local_voxel_coord -> material/state
+```
+
+The `VoxelWorld.set_block_global_position()` flow is especially relevant:
+
+```text
+ship-local voxel coordinate
+    -> determine chunk coordinate
+    -> determine local coordinate inside chunk
+    -> mutate authoritative voxel data
+    -> mark/rebuild changed chunk
+    -> if voxel lies on a chunk boundary, also rebuild affected neighbor
+```
+
+That is almost exactly the dirty-chunk behavior needed for runtime ship construction and destruction.
+
+### Exposed-face meshing
+
+The demo does **not** create a visible cube mesh per block. For every occupied voxel it checks the six neighboring positions and emits a face through `SurfaceTool` only when that face is exposed. It also checks neighboring chunks when the voxel lies on a chunk boundary.
+
+This is directly useful for a small-voxel spacecraft hull because the interior faces between adjacent armor voxels should never be sent to the renderer.
+
+Conceptually:
+
+```text
+for each solid voxel:
+    for each of 6 directions:
+        if neighbor is empty/compatible-transparent:
+            emit face
+```
+
+For our implementation this should be generalized from `block_id` to `ShipMaterialDefinition`, with material-aware visibility rules. Glass/translucent materials in particular need more careful face rules than the demo's simple transparent-block check.
+
+### Threading and rebuild scheduling
+
+The demo generates chunk mesh data through `WorkerThreadPool`, while physics/collision changes remain on the main thread. It also limits chunk creation/deletion work per frame to reduce spikes.
+
+Those are important patterns for us:
+
+- authoritative voxel data may change immediately;
+- dirty chunk mesh calculation can happen asynchronously where safe;
+- final RenderingServer/scene-tree/physics mutations happen on the appropriate thread;
+- large edits or explosions should be budgeted across frames rather than rebuilding every affected chunk at once.
+
+For the spacecraft there is no need for infinite-world render-distance streaming, but the **work budgeting** pattern is still relevant when many hull chunks are damaged simultaneously.
+
+### What should not be copied directly
+
+The demo gives **every block its own `CollisionShape3D`** inside a `StaticBody3D`. This is acceptable for an educational terrain demo, but it is not appropriate for our small-voxel moving spacecraft. Hundreds or thousands of per-voxel collision shapes attached to the ship would be too expensive and would conflict with our existing authoritative `RigidBody3D` design.
+
+Our collision layer should instead compile simplified/chunked collision from voxel occupancy, use merged boxes/convex shapes where possible, and update only dirty regions. Voxel Destruction's collision strategies are a better additional reference for this part.
+
+The demo also performs a full chunk mesh regeneration after a changed block. That is a good first implementation for our finite hull, but later optimization can include:
+
+- chunk sizes tuned for the expected ship scale;
+- material grouping/surfaces;
+- greedy meshing to merge coplanar adjacent faces;
+- cached neighbor/occupancy information;
+- specialized transparent-material passes;
+- incremental collision compilation.
+
+### Current verdict
+
+**Very useful MIT reference for our core `ShipVoxelGrid` / `ShipVoxelChunk` implementation.**
+
+Do not adopt it as a dependency. Extract/reimplement the transferable architecture around chunk coordinates, local voxel coordinates, exposed-face generation, neighbor-boundary invalidation, worker-thread mesh generation and frame-budgeted rebuilds.
+
+Because our voxel hull is a finite moving object rather than an infinite terrain, our implementation can be substantially simpler than a general voxel-world engine while still using the same proven chunking concepts.
+
 ## Static Mesh Merger role after voxel-hull decision
 
 Static Mesh Merger remains useful but is no longer expected to be the primary hull solution.
@@ -550,6 +639,7 @@ Keep gameplay truth separate from rendering and editor UI.
 | Godot 3D Multiplayer Template | Multiplayer patterns | Reference source, not framework dependency |
 | Voxel Destruction | Destructible hull, spatial damage, debris | Strong candidate; may become core destruction backend |
 | GoBuild | In-engine construction/editing UX ideas | Reference only; runtime code must be independently implemented due GPL v3 |
+| Godot Foundation Voxel Game Demo | Chunked voxel data, exposed-face meshing, editing/rebuild flow | Strong MIT reference for project-owned `ShipVoxelGrid` implementation |
 
 ## Near-term validation sequence for construction/destruction
 
@@ -559,7 +649,7 @@ A sensible progression is:
 
 1. Define `ShipMaterialDefinition` with at least steel, titanium and glass.
 2. Create a small `ShipVoxelGrid` test volume around a simple chassis.
-3. Render it efficiently without one Node per voxel.
+3. Render it efficiently without one Node per voxel, initially using exposed-face chunk meshing derived from the Godot Voxel Game Demo pattern.
 4. Add add/remove/paint operations at runtime.
 5. Add symmetry and undo/redo.
 6. Derive mass from material density and verify flight changes.
@@ -568,4 +658,5 @@ A sensible progression is:
 9. Place an internal engine/reactor dummy behind the hull and allow damage through the hole.
 10. Test structural detachment of one section.
 11. Measure performance and determine whether Voxel Destruction should be used directly, wrapped, or mined for ideas.
-12. Only then expand to polished construction UI, multiplayer editing and more material types.
+12. Evaluate greedy meshing and simplified/chunked collision after the basic data/edit loop works.
+13. Only then expand to polished construction UI, multiplayer editing and more material types.
