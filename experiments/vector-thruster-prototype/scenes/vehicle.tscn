@@ -1,0 +1,82 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_logic.gd" id="1_vehicle"]
+[ext_resource type="Script" path="res://scripts/visuals/thruster_visual.gd" id="2_thruster"]
+
+[sub_resource type="StandardMaterial3D" id="Material_body"]
+albedo_color = Color(0.18, 0.28, 0.40, 1)
+metallic = 0.72
+roughness = 0.30
+
+[sub_resource type="BoxMesh" id="Mesh_body"]
+material = SubResource("Material_body")
+size = Vector3(3.0, 0.65, 4.0)
+
+[sub_resource type="BoxShape3D" id="Shape_body"]
+size = Vector3(3.0, 0.65, 4.0)
+
+[sub_resource type="StandardMaterial3D" id="Material_cockpit"]
+albedo_color = Color(0.055, 0.105, 0.16, 1)
+metallic = 0.25
+roughness = 0.12
+
+[sub_resource type="BoxMesh" id="Mesh_cockpit"]
+material = SubResource("Material_cockpit")
+size = Vector3(1.45, 0.58, 1.55)
+
+[sub_resource type="StandardMaterial3D" id="Material_core"]
+albedo_color = Color(0.06, 0.34, 0.62, 1)
+emission_enabled = true
+emission = Color(0.02, 0.28, 0.85, 1)
+emission_energy_multiplier = 3.5
+roughness = 0.20
+
+[sub_resource type="SphereMesh" id="Mesh_core"]
+material = SubResource("Material_core")
+radius = 0.38
+height = 0.76
+
+[node name="Vehicle" type="RigidBody3D"]
+mass = 120.0
+linear_damp = 0.04
+angular_damp = 0.10
+can_sleep = false
+contact_monitor = true
+max_contacts_reported = 8
+script = ExtResource("1_vehicle")
+
+[node name="BodyMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("Mesh_body")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("Shape_body")
+
+[node name="Cockpit" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.54, -0.38)
+mesh = SubResource("Mesh_cockpit")
+
+[node name="PowerCore" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.47, 1.05)
+mesh = SubResource("Mesh_core")
+
+[node name="Thrusters" type="Node3D" parent="."]
+
+[node name="FrontLeft" type="Node3D" parent="Thrusters"]
+position = Vector3(-1.18, -0.52, -1.48)
+script = ExtResource("2_thruster")
+mount_id = &"FL"
+
+[node name="FrontRight" type="Node3D" parent="Thrusters"]
+position = Vector3(1.18, -0.52, -1.48)
+script = ExtResource("2_thruster")
+mount_id = &"FR"
+
+[node name="RearLeft" type="Node3D" parent="Thrusters"]
+position = Vector3(-1.18, -0.52, 1.48)
+script = ExtResource("2_thruster")
+mount_id = &"RL"
+
+[node name="RearRight" type="Node3D" parent="Thrusters"]
+position = Vector3(1.18, -0.52, 1.48)
+script = ExtResource("2_thruster")
+mount_id = &"RR"
