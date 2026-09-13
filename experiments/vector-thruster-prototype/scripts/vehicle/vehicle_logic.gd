@@ -213,6 +213,15 @@ func get_ship_computer() -> ShipComputerLogic:
     return _computer
 
 
+func configure_spawn_transform(spawn_transform: Transform3D) -> void:
+    global_transform = spawn_transform
+    _spawn_transform = spawn_transform
+    linear_velocity = Vector3.ZERO
+    angular_velocity = Vector3.ZERO
+    reset_physics_interpolation()
+    print("[VEHICLE] spawn configured at world y=%.2f" % _spawn_transform.origin.y)
+
+
 func _collect_thrusters() -> void:
     _thruster_nodes.clear()
     _mount_ids.clear()
