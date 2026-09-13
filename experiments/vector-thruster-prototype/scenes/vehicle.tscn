@@ -1,7 +1,8 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_logic.gd" id="1_vehicle"]
 [ext_resource type="Script" path="res://scripts/visuals/thruster_visual.gd" id="2_thruster"]
+[ext_resource type="Script" path="res://scripts/audio/thruster_audio.gd" id="3_audio"]
 
 [sub_resource type="StandardMaterial3D" id="Material_body"]
 albedo_color = Color(0.18, 0.28, 0.40, 1)
@@ -59,24 +60,27 @@ mesh = SubResource("Mesh_cockpit")
 position = Vector3(0, 0.47, 1.05)
 mesh = SubResource("Mesh_core")
 
+[node name="EngineAudio" type="AudioStreamPlayer" parent="."]
+script = ExtResource("3_audio")
+
 [node name="Thrusters" type="Node3D" parent="."]
 
 [node name="FrontLeft" type="Node3D" parent="Thrusters"]
-position = Vector3(-1.18, -0.52, -1.48)
+position = Vector3(-1.72, -0.12, -1.48)
 script = ExtResource("2_thruster")
 mount_id = &"FL"
 
 [node name="FrontRight" type="Node3D" parent="Thrusters"]
-position = Vector3(1.18, -0.52, -1.48)
+position = Vector3(1.72, -0.12, -1.48)
 script = ExtResource("2_thruster")
 mount_id = &"FR"
 
 [node name="RearLeft" type="Node3D" parent="Thrusters"]
-position = Vector3(-1.18, -0.52, 1.48)
+position = Vector3(-1.72, -0.12, 1.48)
 script = ExtResource("2_thruster")
 mount_id = &"RL"
 
 [node name="RearRight" type="Node3D" parent="Thrusters"]
-position = Vector3(1.18, -0.52, 1.48)
+position = Vector3(1.72, -0.12, 1.48)
 script = ExtResource("2_thruster")
 mount_id = &"RR"

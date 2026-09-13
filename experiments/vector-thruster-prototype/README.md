@@ -13,26 +13,55 @@ The project explicitly selects:
 - Godot 4.7 project features;
 - Forward+ rendering on desktop;
 - Jolt Physics;
-- physics interpolation.
+- physics interpolation;
+- responsive `canvas_items` + `expand` window scaling.
+
+If you use Godot 4.7's embedded game window and it still appears centered at a fixed resolution when the host window is maximized, choose **Game > Stretch to Fit** (or run the game in a native floating window). The editor's `Fixed Size` embedding mode intentionally overrides normal resize behavior.
 
 ## Controls
 
 ### Gamepad
 
-- **Right Trigger** — total lift/throttle (analog).
+- **Right Trigger** — total lift/throttle (analog) while hover hold is off.
 - **Left Stick** — vector thrust horizontally.
 - **Right Stick X** — yaw by tangential thrust vectoring.
-- **A / Cross** — toggle attitude stabilization.
-- **Y / Triangle** — reset craft.
+- **A / Cross** — toggle attitude stabilization. Turning it off also disables hover hold.
+- **B / Circle** — toggle hover hold. Enabling it captures the current altitude and automatically enables attitude stabilization.
+- **Y / Triangle** — reset craft and disable hover hold.
 
 ### Keyboard fallback
 
-- **Space** — full lift/throttle.
+- **Space** — full lift/throttle while hover hold is off.
 - **WASD** — horizontal vectoring.
 - **Q / E** — yaw.
 - **F** — toggle attitude stabilization.
+- **H** — toggle hover hold.
 - **R** — reset craft.
 - **1 / 2 / 3 / 4** — add a diagnostic boost to one individual thruster.
+
+## Stabilization behavior
+
+The attitude stabilizer is now an anti-flip flight controller rather than a light damping assist:
+
+- normal PD leveling continuously balances pitch and roll with differential thrust;
+- at roughly `22°` tilt, a soft guard begins reducing pilot horizontal/yaw authority;
+- at roughly `42°` tilt, pilot horizontal authority reaches zero and the flight controller prioritizes recovery;
+- correction gains and angular damping increase progressively through that guard zone;
+- no transform or rotation lock is used — the controller still works only by changing the four motor outputs.
+
+The limits are deliberately conservative for the prototype and remain exported tuning values on `VehicleLogic`.
+
+## Hover hold
+
+Press **B / H** to capture the current world altitude. While enabled:
+
+- manual lift input is replaced by an automatic hover throttle;
+- baseline throttle compensates for gravity and current craft tilt;
+- altitude error and vertical speed feed a PD correction;
+- attitude stabilization remains enabled;
+- the craft can still translate and yaw, subject to the anti-flip envelope.
+
+To descend manually, turn hover hold off and reduce the trigger/throttle yourself.
 
 ## What is physically simulated
 
@@ -42,29 +71,30 @@ The project explicitly selects:
 - Limited thrust-vector gimbal.
 - Horizontal translation comes from tilted thrust, not direct velocity changes.
 - Yaw comes from tangential vectoring at each mount point.
-- Stabilization changes individual thruster output and yaw vectoring; it does not set rotation directly.
+- Stabilization and hover hold only change individual thruster commands; neither sets rotation, position, or velocity directly.
 - Reset is the only intentional transform/velocity override and is executed inside `_integrate_forces()`.
 
-## First tuning values
-
-The first pass intentionally has a generous thrust-to-weight ratio so liftoff is easy to find while testing:
+## Current tuning values
 
 - vehicle mass: `120 kg`;
 - max thrust: `520 N` per thruster (`2080 N` total);
 - Earth-like gravity: project default;
-- max gimbal: `18 deg`;
-- max stabilization throttle correction: roughly `22%` per thruster.
+- max gimbal: `18°`;
+- stabilization mix: `96%`;
+- maximum differential stabilization correction: `48%` tuning range per corner calculation;
+- soft/hard anti-flip envelope: `22° / 42°`.
 
-At ~9.8 m/s² the craft needs about `1177 N` to hover, or roughly `56-57%` total throttle before vectoring losses.
+At ~9.8 m/s² the craft needs about `1177 N` to hover, or roughly `56-57%` total throttle before vectoring/tilt losses.
 
 ## Code layout
 
 - `scripts/input/` — action setup and pilot input state.
-- `scripts/stabilizer/` — pure attitude/yaw stabilization calculations.
+- `scripts/stabilizer/` — pure attitude/yaw stabilization and anti-flip calculations.
 - `scripts/thrusters/` — pure per-thruster command/distribution calculations.
-- `scripts/vehicle/` — orchestration and actual RigidBody force application.
-- `scripts/visuals/` — thruster housing/flame visualization.
+- `scripts/vehicle/` — orchestration, hover controller and actual RigidBody force application.
+- `scripts/visuals/` — larger side-mounted turbine towers plus gimballed nozzle/flame visualization.
+- `scripts/audio/` — procedural engine hum whose pitch and level follow total thrust.
 - `scripts/camera/` — interpolated elevated follow camera.
-- `scripts/ui/` — live physics/debug HUD.
+- `scripts/ui/` — enlarged live physics/debug HUD.
 
-The vehicle orchestration deliberately reads as a short pipeline: read input → calculate stabilization → distribute thruster commands → apply forces → capture metrics.
+The vehicle orchestration deliberately reads as a short pipeline: read input → calculate stabilization → resolve hover/safe pilot request → distribute thruster commands → apply forces → capture metrics.

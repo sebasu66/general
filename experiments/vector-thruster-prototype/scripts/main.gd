@@ -1,5 +1,7 @@
 extends Node3D
 
+const BASE_CONTENT_SIZE := Vector2i(1600, 900)
+
 @onready var vehicle: VehicleLogic = $Vehicle
 @onready var follow_camera: PrototypeFollowCamera = $FollowCamera
 @onready var hud: DebugHUD = $HUD
@@ -8,10 +10,19 @@ extends Node3D
 
 func _ready() -> void:
     PilotInput.ensure_actions()
+    _configure_window_scaling()
     _configure_environment()
     follow_camera.target = vehicle
     follow_camera.snap_to_target()
     hud.bind(vehicle)
+
+
+func _configure_window_scaling() -> void:
+    var window := get_window()
+    window.unresizable = false
+    window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+    window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+    window.content_scale_size = BASE_CONTENT_SIZE
 
 
 func _configure_environment() -> void:
