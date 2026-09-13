@@ -2,7 +2,7 @@ extends Node3D
 
 const BASE_CONTENT_SIZE := Vector2i(1600, 900)
 
-@onready var terrain: ProceduralTerrain = $Terrain
+@onready var space_world: SpaceWorld = $SpaceWorld
 @onready var vehicle: VehicleLogic = $Vehicle
 @onready var follow_camera: PrototypeFollowCamera = $FollowCamera
 @onready var hud: DebugHUD = $HUD
@@ -16,7 +16,7 @@ func _ready() -> void:
     PilotInput.ensure_actions()
     _configure_window_scaling()
     _configure_environment()
-    _place_vehicle_after_terrain_generation()
+    _place_vehicle_after_world_generation()
     follow_camera.target = vehicle
     follow_camera.snap_to_target()
     hud.bind(vehicle)
@@ -25,23 +25,22 @@ func _ready() -> void:
     computer_ui.bind(vehicle.get_ship_computer())
 
 
-func _place_vehicle_after_terrain_generation() -> void:
-    terrain.ensure_generated()
-    var spawn_position := terrain.get_safe_spawn_position()
+func _place_vehicle_after_world_generation() -> void:
+    space_world.ensure_generated()
+    var spawn_transform := space_world.get_safe_spawn_transform()
 
     vehicle.freeze = true
-    vehicle.global_position = spawn_position
+    vehicle.global_transform = spawn_transform
     vehicle.linear_velocity = Vector3.ZERO
     vehicle.angular_velocity = Vector3.ZERO
-    vehicle.configure_spawn_transform(vehicle.global_transform)
+    vehicle.configure_spawn_transform(spawn_transform)
     vehicle.reset_physics_interpolation()
     vehicle.freeze = false
 
     print(
-        "[WORLD] terrain ready -> vehicle positioned at %.2f m above world origin (terrain %.2f + clearance %.2f)" % [
-            spawn_position.y,
-            terrain.get_height_at(0.0, 0.0),
-            terrain.spawn_clearance,
+        "[WORLD] space world ready -> vehicle spawn y=%.2f starter asteroid radius=%.1f" % [
+            spawn_transform.origin.y,
+            space_world.get_starter_asteroid_radius(),
         ]
     )
 
@@ -55,26 +54,4 @@ func _configure_window_scaling() -> void:
 
 
 func _configure_environment() -> void:
-    var sky_material := PhysicalSkyMaterial.new()
-    sky_material.turbidity = 5.5
-    sky_material.ground_color = Color(0.08, 0.065, 0.05, 1.0)
-    sky_material.energy_multiplier = 0.82
-
-    var sky := Sky.new()
-    sky.sky_material = sky_material
-
-    var environment := Environment.new()
-    environment.background_mode = Environment.BG_SKY
-    environment.sky = sky
-    environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-    environment.ambient_light_energy = 0.34
-    environment.ambient_light_sky_contribution = 0.62
-    environment.tonemap_mode = Environment.TONE_MAPPER_ACES
-    environment.ssao_enabled = true
-    environment.ssao_radius = 2.2
-    environment.ssao_intensity = 2.2
-    environment.ssil_enabled = true
-    environment.ssil_intensity = 0.7
-    environment.volumetric_fog_enabled = true
-    environment.volumetric_fog_density = 0.004
-    world_environment.environment = environment
+    world_environment.environment = space_world.build_environment()

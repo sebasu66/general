@@ -1,34 +1,31 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/vehicle.tscn" id="2_vehicle"]
 [ext_resource type="Script" path="res://scripts/camera/follow_camera.gd" id="3_camera"]
 [ext_resource type="Script" path="res://scripts/ui/debug_hud.gd" id="4_hud"]
-[ext_resource type="Script" path="res://scripts/world/procedural_terrain.gd" id="5_terrain"]
-[ext_resource type="Script" path="res://scripts/engine/engine_ui.gd" id="6_engine_ui"]
-[ext_resource type="Script" path="res://scripts/power/power_source_ui.gd" id="7_power_ui"]
-[ext_resource type="Script" path="res://scripts/computer/ship_computer_ui.gd" id="8_computer_ui"]
+[ext_resource type="Script" path="res://scripts/world/space_world.gd" id="5_world"]
+[ext_resource type="Resource" path="res://settings/world_settings.tres" id="6_world_settings"]
+[ext_resource type="Script" path="res://scripts/engine/engine_ui.gd" id="7_engine_ui"]
+[ext_resource type="Script" path="res://scripts/power/power_source_ui.gd" id="8_power_ui"]
+[ext_resource type="Script" path="res://scripts/computer/ship_computer_ui.gd" id="9_computer_ui"]
 
 [node name="PrototypeWorld" type="Node3D"]
 script = ExtResource("1_main")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-62, -28, 0)
-light_color = Color(1, 0.93, 0.82, 1)
-light_energy = 1.05
-light_angular_distance = 1.15
+[node name="StarLight" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-42, -32, 18)
+light_color = Color(0.78, 0.86, 1, 1)
+light_energy = 1.35
+light_angular_distance = 0.35
 shadow_enabled = true
-directional_shadow_max_distance = 165.0
+directional_shadow_max_distance = 420.0
 
-[node name="Terrain" type="StaticBody3D" parent="."]
-script = ExtResource("5_terrain")
-terrain_size = 260.0
-resolution = 84
-height_scale = 7.5
-resource_deposit_count = 54
-spawn_clearance = 2.2
+[node name="SpaceWorld" type="Node3D" parent="."]
+script = ExtResource("5_world")
+settings = ExtResource("6_world_settings")
 
 [node name="Vehicle" parent="." instance=ExtResource("2_vehicle")]
 position = Vector3(0, 0, 0)
@@ -38,16 +35,17 @@ freeze = true
 position = Vector3(10.5, 9.7, 12.5)
 current = true
 fov = 58.0
+far = 4500.0
 script = ExtResource("3_camera")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 script = ExtResource("4_hud")
 
 [node name="EngineUI" type="CanvasLayer" parent="."]
-script = ExtResource("6_engine_ui")
+script = ExtResource("7_engine_ui")
 
 [node name="PowerUI" type="CanvasLayer" parent="."]
-script = ExtResource("7_power_ui")
+script = ExtResource("8_power_ui")
 
 [node name="ComputerUI" type="CanvasLayer" parent="."]
-script = ExtResource("8_computer_ui")
+script = ExtResource("9_computer_ui")

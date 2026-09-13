@@ -20,8 +20,9 @@ window/stretch/scale=1.0
 [physics]
 common/physics_interpolation=true
 3d/physics_engine="Jolt Physics"
+3d/default_gravity=0.0
 
 [rendering]
 renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="mobile"
-environment/defaults/default_clear_color=Color(0.018, 0.026, 0.045, 1)
+environment/defaults/default_clear_color=Color(0.0015, 0.0025, 0.0075, 1)
