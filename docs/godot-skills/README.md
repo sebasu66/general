@@ -98,6 +98,7 @@ Its Godot harness provides agent-friendly inspection, scene, script-validation a
 - `input-gamepad/SKILL.md` — analog controls and reconfigurable thruster bindings.
 - `architecture/SKILL.md` — readable library/logic separation requested for this project.
 - `lighting-environments/SKILL.md` — WorldEnvironment, skies, exposure, GI, reflections, fog, glow and context-specific lighting profiles for space, asteroid surfaces, planets and interiors.
+- `voxel-world-streaming/SKILL.md` — Voxel Tools 1.7, smooth SDF planetoids, `VoxelLodTerrain`, viewers, persistence, material channels, cave generation, origin shifting, performance and multiplayer caveats.
 - `multiplayer-networking/SKILL.md` — authoritative Jolt ship physics, ENet/Steam transport, replication, interpolation, late join, multiplayer crafting and network validation.
 - `testing-proof/SKILL.md` — unit/integration tests and visual runtime proof.
 - `debugging/SKILL.md` — logs, metrics and failure-first debugging.
