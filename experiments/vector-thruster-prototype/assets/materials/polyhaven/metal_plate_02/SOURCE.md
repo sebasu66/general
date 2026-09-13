@@ -1,0 +1,1 @@
+﻿# metal_plate_02  Source: https://polyhaven.com/a/metal_plate_02 Downloaded through: https://api.polyhaven.com/files/metal_plate_02 License: CC0 (asset license). Resolution: 1K JPG maps selected for prototype use. 
