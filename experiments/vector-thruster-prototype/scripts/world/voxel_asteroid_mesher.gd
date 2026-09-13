@@ -86,6 +86,17 @@ static func build_mesh(
     cave_gate.fractal_octaves = 2
     cave_gate.fractal_gain = 0.5
 
+    # Independent geology field used only to classify visible voxel material.
+    # The current proof still renders one merged surface, but the deterministic
+    # material bands are stable and can become real material IDs in VoxelGrid3D.
+    var material_field := FastNoiseLite.new()
+    material_field.seed = seed + 61871
+    material_field.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+    material_field.frequency = 0.065
+    material_field.fractal_type = FastNoiseLite.FRACTAL_FBM
+    material_field.fractal_octaves = 3
+    material_field.fractal_gain = 0.55
+
     var cavern_layout := _build_cavern_layout(
         radius,
         cave_tunnel_radius,
@@ -140,11 +151,20 @@ static func build_mesh(
                     center.y - 37.0,
                     center.z + 211.0
                 )
+                var material_noise := material_field.get_noise_3d(
+                    center.x,
+                    center.y,
+                    center.z
+                )
                 var brightness := 0.82 + (color_noise + 1.0) * 0.11
                 if caves_enabled and center.length() < radius * 0.82:
                     brightness *= 0.86
-                var face_color := Color(0.22, 0.205, 0.19, 1.0) * brightness
-                face_color.a = 1.0
+                var face_color := _choose_geology_color(
+                    material_noise,
+                    center,
+                    radius,
+                    brightness
+                )
 
                 for face_index: int in range(DIRECTIONS.size()):
                     var neighbor := Vector3i(x, y, z) + DIRECTIONS[face_index]
@@ -197,6 +217,45 @@ static func get_cavern_entrances(radius: float) -> Array[Vector3]:
     for entrance: Vector3 in layout["entrances"]:
         entrances.append(entrance)
     return entrances
+
+
+static func get_cavern_landmarks(radius: float) -> Array[Vector3]:
+    var layout := _build_cavern_layout(radius, 1.0, 1.0)
+    var landmarks: Array[Vector3] = []
+    for chamber: Dictionary in layout["chambers"]:
+        landmarks.append(chamber["center"])
+    return landmarks
+
+
+static func _choose_geology_color(
+        material_noise: float,
+        center: Vector3,
+        radius: float,
+        brightness: float
+) -> Color:
+    # Five intentionally distinct geology families. The palette is not random
+    # per face: neighboring voxels share the same low-frequency material field,
+    # producing deposits/veins instead of confetti.
+    var base := Color(0.24, 0.225, 0.205, 1.0)
+
+    if material_noise < -0.44:
+        base = Color(0.12, 0.135, 0.16, 1.0)
+    elif material_noise < -0.12:
+        base = Color(0.30, 0.285, 0.255, 1.0)
+    elif material_noise < 0.20:
+        base = Color(0.43, 0.32, 0.23, 1.0)
+    elif material_noise < 0.48:
+        base = Color(0.29, 0.34, 0.37, 1.0)
+    else:
+        var depth_factor := clampf(1.0 - center.length() / maxf(radius, 0.001), 0.0, 1.0)
+        base = Color(0.18, 0.58, 0.66, 1.0).lerp(
+            Color(0.42, 0.92, 1.0, 1.0),
+            depth_factor
+        )
+
+    var result := base * brightness
+    result.a = 1.0
+    return result
 
 
 static func _build_cavern_layout(
