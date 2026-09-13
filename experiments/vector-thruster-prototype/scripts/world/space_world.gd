@@ -4,6 +4,8 @@ extends Node3D
 const ROCK_DIFFUSE: Texture2D = preload("res://assets/materials/polyhaven/rock_surface/rock_surface_diff_1k.jpg")
 const ROCK_NORMAL: Texture2D = preload("res://assets/materials/polyhaven/rock_surface/rock_surface_nor_gl_1k.jpg")
 const ROCK_ROUGHNESS: Texture2D = preload("res://assets/materials/polyhaven/rock_surface/rock_surface_rough_1k.jpg")
+const PRIMARY_STAR_DIRECTION := Vector3(-0.56, 0.34, -0.76).normalized()
+const PRIMARY_STAR_DISTANCE: float = 1450.0
 
 @export var settings: WorldSettings
 
@@ -28,6 +30,8 @@ func ensure_generated() -> void:
     _starter_asteroid_radius = settings.starter_asteroid_radius
     _rock_material = _create_rock_material()
 
+    _configure_primary_star()
+    _build_visible_sun()
     _build_starter_asteroid()
     _generate_asteroid_records()
     _build_far_asteroid_physics()
@@ -112,19 +116,59 @@ func get_gravity_context(world_position: Vector3) -> Dictionary:
 func build_environment() -> Environment:
     var environment := Environment.new()
     environment.background_mode = Environment.BG_COLOR
-    environment.background_color = Color(0.0015, 0.0025, 0.0075, 1.0)
-    environment.background_energy_multiplier = 0.32
+    environment.background_color = Color(0.003, 0.005, 0.012, 1.0)
+    environment.background_energy_multiplier = 0.42
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    environment.ambient_light_color = Color(0.16, 0.20, 0.30, 1.0)
-    environment.ambient_light_energy = 0.18
+    environment.ambient_light_color = Color(0.20, 0.24, 0.34, 1.0)
+    environment.ambient_light_energy = 0.34
     environment.tonemap_mode = Environment.TONE_MAPPER_ACES
     environment.ssao_enabled = true
     environment.ssao_radius = 4.0
-    environment.ssao_intensity = 2.6
+    environment.ssao_intensity = 2.1
     environment.ssil_enabled = true
-    environment.ssil_intensity = 0.55
+    environment.ssil_intensity = 0.72
     environment.volumetric_fog_enabled = false
     return environment
+
+
+func _configure_primary_star() -> void:
+    var star_light := get_parent().get_node_or_null("StarLight") as DirectionalLight3D
+    if star_light == null:
+        star_light = DirectionalLight3D.new()
+        star_light.name = "StarLight"
+        get_parent().add_child(star_light)
+
+    star_light.light_color = Color(1.0, 0.91, 0.77, 1.0)
+    star_light.light_energy = 1.9
+    star_light.shadow_enabled = true
+    star_light.look_at(
+        star_light.global_position - PRIMARY_STAR_DIRECTION,
+        Vector3.UP
+    )
+
+
+func _build_visible_sun() -> void:
+    var sun_mesh := SphereMesh.new()
+    sun_mesh.radius = 28.0
+    sun_mesh.height = 56.0
+    sun_mesh.radial_segments = 24
+    sun_mesh.rings = 12
+
+    var sun_material := StandardMaterial3D.new()
+    sun_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    sun_material.albedo_color = Color(1.0, 0.76, 0.34, 1.0)
+    sun_material.emission_enabled = true
+    sun_material.emission = Color(1.0, 0.63, 0.20, 1.0)
+    sun_material.emission_energy_multiplier = 12.0
+    sun_mesh.material = sun_material
+
+    var sun := MeshInstance3D.new()
+    sun.name = "PrimaryStarVisual"
+    sun.mesh = sun_mesh
+    sun.position = PRIMARY_STAR_DIRECTION * PRIMARY_STAR_DISTANCE
+    sun.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    sun.visibility_range_end = settings.far_visibility_distance * 1.5
+    add_child(sun)
 
 
 func _build_starter_asteroid() -> void:
@@ -160,9 +204,6 @@ func _build_starter_asteroid() -> void:
     collision.shape = mesh.create_trimesh_shape()
     body.add_child(collision)
 
-    # A closed spherical occluder is useful for a solid asteroid but would
-    # incorrectly treat the new cave volume as filled rock. Disable it for the
-    # cavern prototype so interior passages remain renderable from inside.
     if not settings.voxel_caves_enabled:
         var occluder_instance := OccluderInstance3D.new()
         occluder_instance.name = "SimpleSphereOccluder"
