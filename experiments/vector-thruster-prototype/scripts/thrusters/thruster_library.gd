@@ -6,7 +6,8 @@ const YAW_VECTOR_WEIGHT: float = 0.62
 const SPACE_STEER_VECTOR_WEIGHT: float = 0.72
 const SPACE_STEERING_THROTTLE: float = 0.68
 const SPACE_FRONT_CRUISE_MIX: float = 0.12
-const SPACE_STABILIZER_STEER_MIX: float = 0.72
+const SPACE_STABILIZER_STEER_MIX: float = 1.0
+const SPACE_YAW_DAMPING_GAIN: float = 1.65
 
 
 static func build_commands(
@@ -69,6 +70,9 @@ static func build_space_commands(
 ) -> Array[ThrusterCommand]:
     var commands: Array[ThrusterCommand] = []
 
+    # In zero-G the stabilizer is an angular-rate damper, not a horizon keeper.
+    # Pilot input wins while the stick is held; once released, the same front
+    # vector thrusters actively oppose pitch/roll/yaw angular velocity.
     var pitch_request := clampf(
         pilot.move.y + stabilization.level_command.x * SPACE_STABILIZER_STEER_MIX,
         -1.0,
@@ -80,7 +84,7 @@ static func build_space_commands(
         1.0
     )
     var yaw_request := clampf(
-        pilot.yaw - stabilization.yaw_correction,
+        pilot.yaw + stabilization.yaw_correction * SPACE_YAW_DAMPING_GAIN,
         -1.0,
         1.0
     )
