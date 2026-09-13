@@ -3,6 +3,10 @@ extends RefCounted
 
 const MANUAL_DIAGNOSTIC_BOOST: float = 0.28
 const YAW_VECTOR_WEIGHT: float = 0.62
+const SPACE_STEER_VECTOR_WEIGHT: float = 0.72
+const SPACE_STEERING_THROTTLE: float = 0.68
+const SPACE_FRONT_CRUISE_MIX: float = 0.12
+const SPACE_STABILIZER_STEER_MIX: float = 0.72
 
 
 static func build_commands(
@@ -49,6 +53,82 @@ static func build_commands(
             mount,
             max_gimbal
         )
+        command.effective_thrust = command.effective_throttle * command.max_thrust
+        command.gimbal_degrees = rad_to_deg(acos(clampf(command.local_direction.dot(Vector3.UP), -1.0, 1.0)))
+        commands.append(command)
+
+    return commands
+
+
+static func build_space_commands(
+        mount_ids: Array[StringName],
+        mount_positions: Array[Vector3],
+        max_thrusts: Array[float],
+        pilot: PilotInputState,
+        stabilization: StabilizationOutput
+) -> Array[ThrusterCommand]:
+    var commands: Array[ThrusterCommand] = []
+
+    var pitch_request := clampf(
+        pilot.move.y + stabilization.level_command.x * SPACE_STABILIZER_STEER_MIX,
+        -1.0,
+        1.0
+    )
+    var roll_request := clampf(
+        pilot.move.x + stabilization.level_command.y * SPACE_STABILIZER_STEER_MIX,
+        -1.0,
+        1.0
+    )
+    var yaw_request := clampf(
+        pilot.yaw - stabilization.yaw_correction,
+        -1.0,
+        1.0
+    )
+    var steering_strength := clampf(
+        maxf(absf(pitch_request), maxf(absf(roll_request), absf(yaw_request))),
+        0.0,
+        1.0
+    )
+
+    for index: int in range(mount_positions.size()):
+        var mount := mount_positions[index]
+        var command := ThrusterCommand.new()
+        command.mount_id = mount_ids[index]
+        command.local_position = mount
+        command.max_thrust = _float_at(max_thrusts, index, 520.0)
+        command.manual_boost = _manual_boost_at(pilot, index) * MANUAL_DIAGNOSTIC_BOOST
+
+        var is_front := mount.z < 0.0
+        if is_front:
+            var side_sign := 1.0 if mount.x >= 0.0 else -1.0
+            var vertical_steer := clampf(
+                pitch_request - roll_request * side_sign,
+                -1.0,
+                1.0
+            )
+            var lateral_steer := yaw_request
+            command.base_throttle = pilot.lift * SPACE_FRONT_CRUISE_MIX
+            command.requested_throttle = clampf(
+                maxf(command.base_throttle, steering_strength * SPACE_STEERING_THROTTLE)
+                + command.manual_boost,
+                0.0,
+                1.0
+            )
+            command.local_direction = Vector3(
+                lateral_steer * SPACE_STEER_VECTOR_WEIGHT,
+                vertical_steer * SPACE_STEER_VECTOR_WEIGHT,
+                -1.0
+            ).normalized()
+        else:
+            command.base_throttle = pilot.lift
+            command.requested_throttle = clampf(
+                command.base_throttle + command.manual_boost,
+                0.0,
+                1.0
+            )
+            command.local_direction = Vector3.FORWARD
+
+        command.effective_throttle = command.requested_throttle
         command.effective_thrust = command.effective_throttle * command.max_thrust
         command.gimbal_degrees = rad_to_deg(acos(clampf(command.local_direction.dot(Vector3.UP), -1.0, 1.0)))
         commands.append(command)

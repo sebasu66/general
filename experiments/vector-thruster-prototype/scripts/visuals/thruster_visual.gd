@@ -37,8 +37,9 @@ func set_output(local_direction: Vector3, thrust_ratio: float) -> void:
     _exhaust_light.omni_range = lerpf(1.2, 6.0, ratio)
     _exhaust_light.visible = ratio > 0.02
 
-    _smoke.emitting = ratio > 0.16
-    _smoke.amount_ratio = clampf((ratio - 0.12) * 0.42, 0.0, 0.38)
+    var surface_oriented := direction.dot(Vector3.UP) > 0.55
+    _smoke.emitting = ratio > 0.16 and surface_oriented
+    _smoke.amount_ratio = clampf((ratio - 0.12) * 0.42, 0.0, 0.38) if surface_oriented else 0.0
 
 
 func _create_tower_housing() -> void:

@@ -3,6 +3,8 @@ extends CanvasLayer
 
 var _vehicle: VehicleLogic
 var _status_label: Label
+var _control_actions: Array[Label] = []
+var _last_flight_mode: String = ""
 
 
 func _ready() -> void:
@@ -22,6 +24,7 @@ func _process(_delta: float) -> void:
     if snapshot.is_empty():
         return
 
+    var flight_mode := String(snapshot.get("flight_mode", "SURFACE"))
     var stabilizer_text := "ON" if snapshot.get("stabilizer_enabled", false) else "OFF"
     var hover_text := "OFF"
     if snapshot.get("hover_enabled", false):
@@ -31,13 +34,18 @@ func _process(_delta: float) -> void:
     if snapshot.get("gravity_active", false):
         gravity_text = "GRAVITY %.2f m/s²" % float(snapshot.get("gravity_strength", 0.0))
 
-    _status_label.text = "STABILIZER %s   HOVER %s   %s   BATTERY %.0f%%   MOTOR %.0f%%" % [
+    _status_label.text = "MODE %s   STABILIZER %s   HOVER %s   %s   BATTERY %.0f%%   MOTOR %.0f%%" % [
+        flight_mode,
         stabilizer_text,
         hover_text,
         gravity_text,
         float(snapshot.get("battery_ratio", 0.0)) * 100.0,
         float(snapshot.get("engine_output_ratio", 0.0)) * 100.0,
     ]
+
+    if flight_mode != _last_flight_mode:
+        _last_flight_mode = flight_mode
+        _update_control_legend(flight_mode)
 
 
 func _build_ui() -> void:
@@ -53,7 +61,7 @@ func _build_ui() -> void:
     status_panel.add_child(status_margin)
 
     _status_label = Label.new()
-    _status_label.text = "STABILIZER ON   HOVER OFF   GRAVITY --"
+    _status_label.text = "MODE SURFACE   STABILIZER ON   HOVER OFF   GRAVITY --"
     _status_label.add_theme_font_size_override("font_size", 19)
     status_margin.add_child(_status_label)
 
@@ -61,8 +69,8 @@ func _build_ui() -> void:
     controls_panel.anchor_top = 1.0
     controls_panel.anchor_bottom = 1.0
     controls_panel.offset_left = 18.0
-    controls_panel.offset_top = -282.0
-    controls_panel.offset_right = 390.0
+    controls_panel.offset_top = -316.0
+    controls_panel.offset_right = 430.0
     controls_panel.offset_bottom = -18.0
     add_child(controls_panel)
 
@@ -98,7 +106,7 @@ func _add_control_row(parent: VBoxContainer, button_text: String, action_text: S
 
     var button := Label.new()
     button.text = button_text
-    button.custom_minimum_size = Vector2(70.0, 0.0)
+    button.custom_minimum_size = Vector2(78.0, 0.0)
     button.add_theme_font_size_override("font_size", 17)
     row.add_child(button)
 
@@ -106,3 +114,25 @@ func _add_control_row(parent: VBoxContainer, button_text: String, action_text: S
     action.text = action_text
     action.add_theme_font_size_override("font_size", 16)
     row.add_child(action)
+    _control_actions.append(action)
+
+
+func _update_control_legend(flight_mode: String) -> void:
+    if _control_actions.size() < 7:
+        return
+
+    if flight_mode == "SPACE":
+        _control_actions[0].text = "Forward thrust · rear engines"
+        _control_actions[1].text = "Pitch ↑↓ / roll ↔"
+        _control_actions[2].text = "Yaw left / right"
+        _control_actions[3].text = "Angular damping ON / OFF"
+        _control_actions[4].text = "Hover unavailable in zero-G"
+    else:
+        _control_actions[0].text = "Lift / engine throttle"
+        _control_actions[1].text = "Vector thrust / move"
+        _control_actions[2].text = "Yaw left / right"
+        _control_actions[3].text = "Attitude stabilizer ON / OFF"
+        _control_actions[4].text = "Hover hold ON / OFF"
+
+    _control_actions[5].text = "Ship computer terminal"
+    _control_actions[6].text = "Reset ship"

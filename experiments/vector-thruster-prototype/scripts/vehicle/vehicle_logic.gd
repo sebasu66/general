@@ -1,6 +1,11 @@
 class_name VehicleLogic
 extends RigidBody3D
 
+enum FlightMode {
+    SURFACE,
+    SPACE,
+}
+
 @export_group("Attitude Stabilizer")
 @export_range(0.0, 1.0, 0.01) var stabilization_mix: float = 0.96
 @export var stabilization_kp: float = 5.6
@@ -37,6 +42,7 @@ var _spawn_transform: Transform3D
 var _debug_snapshot: Dictionary = {}
 var _space_world: SpaceWorld
 var _gravity_context: Dictionary = {}
+var _flight_mode: FlightMode = FlightMode.SURFACE
 
 @onready var _computer: ShipComputerLogic = $Components/ShipComputer
 @onready var _pilot_seat: PilotSeatLogic = $Components/PilotSeat
@@ -61,6 +67,7 @@ func _ready() -> void:
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
     _apply_pending_reset(state)
     _update_gravity_context(state.transform.origin)
+    _update_flight_mode(state)
     _apply_mode_requests(state)
 
     _computer.tick_power_system(state.step)
@@ -92,7 +99,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 
 func calculate_stabilization(state: PhysicsDirectBodyState3D) -> StabilizationOutput:
     var target_up := state.transform.basis.orthonormalized().y.normalized()
-    if _has_local_gravity(state):
+    if _flight_mode == FlightMode.SURFACE and _has_local_gravity(state):
         target_up = -state.total_gravity.normalized()
 
     return StabilizerLibrary.calculate(
@@ -120,7 +127,7 @@ func calculate_requested_motion(
 
     var move_authority := 1.0
     var yaw_authority := 1.0
-    if stabilization.enabled:
+    if _flight_mode == FlightMode.SURFACE and stabilization.enabled:
         move_authority = stabilization.pilot_move_authority
         yaw_authority = stabilization.pilot_yaw_authority
 
@@ -139,6 +146,11 @@ func calculate_requested_lift(
         manual_lift: float,
         controlled_move: Vector2
 ) -> float:
+    if _flight_mode == FlightMode.SPACE:
+        _hover_enabled = false
+        _hover_auto_throttle = manual_lift
+        return manual_lift
+
     if not _hover_enabled:
         _hover_auto_throttle = manual_lift
         return manual_lift
@@ -176,6 +188,15 @@ func distribute_power_to_thrusters(
         pilot: PilotInputState,
         stabilization: StabilizationOutput
 ) -> Array[ThrusterCommand]:
+    if _flight_mode == FlightMode.SPACE:
+        return ThrusterLibrary.build_space_commands(
+            _mount_ids,
+            _mount_positions,
+            _max_thrusts,
+            pilot,
+            stabilization
+        )
+
     return ThrusterLibrary.build_commands(
         _mount_ids,
         _mount_positions,
@@ -204,6 +225,7 @@ func update_debug_metrics(state: PhysicsDirectBodyState3D) -> void:
     var power_snapshot := _power_source.get_snapshot()
     var engine_snapshot := _engine.get_snapshot()
     _debug_snapshot = {
+        "flight_mode": get_flight_mode_name(),
         "stabilizer_enabled": _stabilizer_enabled,
         "hover_enabled": _hover_enabled,
         "hover_target_altitude": _hover_target_altitude,
@@ -229,6 +251,10 @@ func get_power_source_component() -> PowerSourceLogic:
 
 func get_ship_computer() -> ShipComputerLogic:
     return _computer
+
+
+func get_flight_mode_name() -> String:
+    return "SPACE" if _flight_mode == FlightMode.SPACE else "SURFACE"
 
 
 func configure_space_world(space_world: SpaceWorld) -> void:
@@ -281,6 +307,27 @@ func _update_gravity_context(world_position: Vector3) -> void:
     _gravity_context = _space_world.get_gravity_context(world_position)
 
 
+func _update_flight_mode(state: PhysicsDirectBodyState3D) -> void:
+    var threshold := 0.15
+    if _space_world != null and _space_world.settings != null:
+        threshold = _space_world.settings.zero_gravity_threshold
+
+    var gravity_strength := state.total_gravity.length()
+    var new_mode := _flight_mode
+    if _flight_mode == FlightMode.SURFACE and gravity_strength < threshold:
+        new_mode = FlightMode.SPACE
+    elif _flight_mode == FlightMode.SPACE and gravity_strength > threshold * 1.6:
+        new_mode = FlightMode.SURFACE
+
+    if new_mode == _flight_mode:
+        return
+
+    _flight_mode = new_mode
+    if _flight_mode == FlightMode.SPACE:
+        _hover_enabled = false
+    print("[VEHICLE] flight mode -> %s gravity=%.3f" % [get_flight_mode_name(), gravity_strength])
+
+
 func _has_local_gravity(state: PhysicsDirectBodyState3D) -> bool:
     var threshold := 0.15
     if _space_world != null and _space_world.settings != null:
@@ -309,7 +356,11 @@ func _apply_mode_requests(state: PhysicsDirectBodyState3D) -> void:
     if _hover_toggle_requested:
         if _hover_enabled:
             _hover_enabled = false
-        elif _has_local_gravity(state) and bool(_gravity_context.get("active", false)):
+        elif (
+            _flight_mode == FlightMode.SURFACE
+            and _has_local_gravity(state)
+            and bool(_gravity_context.get("active", false))
+        ):
             _hover_enabled = true
             _stabilizer_enabled = true
             _hover_target_altitude = float(_gravity_context.get("surface_altitude", 0.0))
@@ -325,5 +376,6 @@ func _apply_pending_reset(state: PhysicsDirectBodyState3D) -> void:
     state.angular_velocity = Vector3.ZERO
     _hover_enabled = false
     _hover_auto_throttle = 0.0
+    _flight_mode = FlightMode.SURFACE
     _reset_requested = false
     reset_physics_interpolation()
