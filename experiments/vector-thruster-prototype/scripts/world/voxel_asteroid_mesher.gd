@@ -172,12 +172,15 @@ static func _append_face(
     uvs.append(Vector2(1.0, 0.0))
     uvs.append(Vector2(0.0, 0.0))
 
+    # Godot considers clockwise triangles front-facing. FACE_U x FACE_V points
+    # outward, so the original 0-1-2 order was counter-clockwise from outside
+    # and caused the asteroid shell to render inside-out with back-face culling.
     indices.append(base_index)
+    indices.append(base_index + 2)
     indices.append(base_index + 1)
-    indices.append(base_index + 2)
     indices.append(base_index)
-    indices.append(base_index + 2)
     indices.append(base_index + 3)
+    indices.append(base_index + 2)
 
 
 static func _cell_center(
