@@ -213,6 +213,88 @@ Before ship crafting, prove the voxel core on a small organic asteroid/rock:
 
 This is the first milestone.
 
+
+## Planet-scale streaming direction
+
+The large-world plan should treat each detailed planetoid as a streamed local terrain domain instead of keeping every body's high-resolution voxel data resident at once.
+
+Conceptually:
+
+```text
+STAR SYSTEM / SPACE DOMAIN
+  -> cheap distant planet proxies
+  -> asteroid fields / stations / encounter markers
+  -> detect approach to a detailed body
+        |
+        v
+PLANET DOMAIN
+  -> atmosphere / sky profile
+  -> local gravity
+  -> voxel terrain viewer centered on players
+  -> load/generate nearby terrain chunks
+  -> unload distant chunks
+  -> local props/enemies/missions streamed by region
+```
+
+The atmosphere is useful visually because once the player descends far enough the local sky/atmosphere can dominate the view, but it is **not** the reason streaming works. Streaming must still explicitly control CPU/GPU memory, physics, terrain chunks, AI, props and mission assets.
+
+### Strong candidate: Zylann Voxel Tools
+
+Before writing our own planet-scale paging/LOD layer, evaluate **Zylann/godot_voxel (Voxel Tools)**. Its terrain nodes already solve many of the infrastructure problems we were about to implement manually:
+
+- chunk/block based voxel storage;
+- background threaded generation/meshing;
+- loading and unloading blocks around one or more viewers;
+- editable terrain with local remeshing;
+- LOD terrain for much larger view distances;
+- stream-backed persistence where only nearby blocks remain resident;
+- custom generators and custom voxel channels/material data.
+
+For our target Godot version, Voxel Tools 1.7 has a Godot 4.7.2 custom build and a GDExtension edition. Prefer evaluating the GDExtension first so the project can remain on an official Godot build unless the module edition proves necessary.
+
+Also study the public **solar_system_demo** built on Voxel Tools. It is unusually close to our intended proof: editable voxel planets/moons, caves/ravines, ground-to-space spacecraft travel, per-planet persistence and origin shifting. Use it as an architecture reference rather than assuming we need to invent planet streaming from scratch.
+
+### Planet representation tiers
+
+A planet should have multiple representations, not one globally detailed sphere:
+
+```text
+VERY FAR
+  tiny impostor / proxy sphere
+
+FAR SPACE
+  low-cost spherical mesh + atmosphere
+
+NEAR ORBIT
+  chunked LOD terrain begins contributing visible detail
+
+SURFACE / CAVES
+  high-resolution voxel blocks around active viewers
+  physics + resources + enemies + props
+
+BEHIND / FAR SIDE
+  no full-resolution terrain resident unless another player requires it
+```
+
+In multiplayer, terrain residency is the union of regions needed by active player/viewer positions, while authoritative edited voxel state persists independently of whether a chunk is currently loaded.
+
+### Scene/content streaming above the voxel layer
+
+Voxel streaming only solves terrain. Build a separate region/content streamer for non-voxel content:
+
+```text
+PlanetRegion
+  -> terrain chunks
+  -> vegetation/rocks
+  -> resource nodes
+  -> enemies
+  -> structures
+  -> mission actors
+  -> audio/ambient profile
+```
+
+As players cross region boundaries, instantiate nearby gameplay content and release or pool distant content. Mission state must remain logical/persistent even if its scene nodes are unloaded.
+
 ## Phase 2 — Damage, destruction and local individuality
 
 Once the voxel substrate works, make it destructible before building the full ship editor.
