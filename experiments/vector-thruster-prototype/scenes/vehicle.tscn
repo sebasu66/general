@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_logic.gd" id="1_vehicle"]
 [ext_resource type="Script" path="res://scripts/thrusters/thruster_logic.gd" id="2_thruster"]
@@ -7,26 +7,76 @@
 [ext_resource type="Script" path="res://scripts/engine/engine_logic.gd" id="5_engine"]
 [ext_resource type="Script" path="res://scripts/power/power_source_logic.gd" id="6_power"]
 
-[sub_resource type="StandardMaterial3D" id="Material_body"]
-albedo_color = Color(0.18, 0.28, 0.40, 1)
-metallic = 0.72
-roughness = 0.30
+[sub_resource type="StandardMaterial3D" id="Material_hull"]
+albedo_color = Color(0.16, 0.21, 0.29, 1)
+metallic = 0.82
+roughness = 0.27
 
-[sub_resource type="BoxMesh" id="Mesh_body"]
-material = SubResource("Material_body")
-size = Vector3(3.0, 0.65, 4.0)
+[sub_resource type="StandardMaterial3D" id="Material_accent"]
+albedo_color = Color(0.40, 0.18, 0.055, 1)
+metallic = 0.68
+roughness = 0.34
+
+[sub_resource type="StandardMaterial3D" id="Material_canopy"]
+albedo_color = Color(0.018, 0.045, 0.075, 1)
+metallic = 0.18
+roughness = 0.075
+
+[sub_resource type="StandardMaterial3D" id="Material_ceramic"]
+albedo_color = Color(0.72, 0.73, 0.69, 1)
+metallic = 0.03
+roughness = 0.56
+
+[sub_resource type="StandardMaterial3D" id="Material_polymer"]
+albedo_color = Color(0.045, 0.052, 0.064, 1)
+metallic = 0.08
+roughness = 0.39
+
+[sub_resource type="CylinderMesh" id="Mesh_fuselage"]
+material = SubResource("Material_hull")
+top_radius = 1.16
+bottom_radius = 0.90
+height = 3.65
+radial_segments = 8
+rings = 2
+
+[sub_resource type="CylinderMesh" id="Mesh_nose"]
+material = SubResource("Material_hull")
+top_radius = 0.91
+bottom_radius = 0.08
+height = 1.75
+radial_segments = 8
+rings = 2
+
+[sub_resource type="SphereMesh" id="Mesh_cockpit"]
+material = SubResource("Material_canopy")
+radius = 0.82
+height = 1.45
+radial_segments = 16
+rings = 8
+
+[sub_resource type="BoxMesh" id="Mesh_wing"]
+material = SubResource("Material_accent")
+size = Vector3(1.9, 0.14, 2.25)
+
+[sub_resource type="BoxMesh" id="Mesh_spine"]
+material = SubResource("Material_polymer")
+size = Vector3(0.72, 0.22, 2.45)
+
+[sub_resource type="BoxMesh" id="Mesh_belly"]
+material = SubResource("Material_ceramic")
+size = Vector3(1.55, 0.13, 2.85)
+
+[sub_resource type="BoxMesh" id="Mesh_tailfin"]
+material = SubResource("Material_hull")
+size = Vector3(0.13, 0.82, 1.15)
+
+[sub_resource type="BoxMesh" id="Mesh_thruster_bridge"]
+material = SubResource("Material_polymer")
+size = Vector3(3.15, 0.18, 0.46)
 
 [sub_resource type="BoxShape3D" id="Shape_body"]
 size = Vector3(3.0, 0.65, 4.0)
-
-[sub_resource type="StandardMaterial3D" id="Material_cockpit"]
-albedo_color = Color(0.055, 0.105, 0.16, 1)
-metallic = 0.25
-roughness = 0.12
-
-[sub_resource type="BoxMesh" id="Mesh_cockpit"]
-material = SubResource("Material_cockpit")
-size = Vector3(1.55, 0.42, 1.70)
 
 [node name="Vehicle" type="RigidBody3D"]
 mass = 120.0
@@ -37,15 +87,60 @@ contact_monitor = true
 max_contacts_reported = 8
 script = ExtResource("1_vehicle")
 
-[node name="BodyMesh" type="MeshInstance3D" parent="."]
-mesh = SubResource("Mesh_body")
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="Fuselage" type="MeshInstance3D" parent="Visuals"]
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("Mesh_fuselage")
+
+[node name="Nose" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, -0.02, -2.69)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("Mesh_nose")
+
+[node name="CockpitCanopy" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 0.53, -1.17)
+scale = Vector3(0.82, 0.48, 1.18)
+mesh = SubResource("Mesh_cockpit")
+
+[node name="LeftWing" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(-1.48, -0.07, 0.20)
+rotation_degrees = Vector3(0, 12, -2)
+mesh = SubResource("Mesh_wing")
+
+[node name="RightWing" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(1.48, -0.07, 0.20)
+rotation_degrees = Vector3(0, -12, 2)
+mesh = SubResource("Mesh_wing")
+
+[node name="DorsalSpine" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 0.55, 0.46)
+mesh = SubResource("Mesh_spine")
+
+[node name="CeramicBelly" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, -0.43, 0.24)
+mesh = SubResource("Mesh_belly")
+
+[node name="LeftTailFin" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(-0.76, 0.49, 1.52)
+rotation_degrees = Vector3(-8, 0, -8)
+mesh = SubResource("Mesh_tailfin")
+
+[node name="RightTailFin" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0.76, 0.49, 1.52)
+rotation_degrees = Vector3(-8, 0, 8)
+mesh = SubResource("Mesh_tailfin")
+
+[node name="FrontThrusterBridge" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, -0.12, -1.48)
+mesh = SubResource("Mesh_thruster_bridge")
+
+[node name="RearThrusterBridge" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, -0.12, 1.48)
+mesh = SubResource("Mesh_thruster_bridge")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("Shape_body")
-
-[node name="CockpitShell" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.48, -0.42)
-mesh = SubResource("Mesh_cockpit")
 
 [node name="Components" type="Node3D" parent="."]
 
