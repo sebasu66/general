@@ -99,6 +99,33 @@ Those remain the next stages after this geometry/cavern proof is visually and pe
 9. No obvious false occlusion occurs while looking through or from inside caves.
 10. Startup generation and trimesh collision creation do not cause an unacceptable hitch.
 
+## Runtime smoke result — 2026-09-13
+
+Validated locally through AI Local Access using Godot 4.7.1 stable.
+
+Editor/headless project scan completed with exit code 0 and no parser/import failure. Runtime execution for 120 frames also completed with exit code 0 and generated the full space world.
+
+Observed cavern generation metrics:
+
+```text
+radius=42.0
+resolution=64
+actual cell size=1.68 m
+solid voxels=60,998
+carved voxels=5,258
+exposed faces=20,832
+vertices=83,328
+caves=true
+```
+
+The full world then generated 340 asteroids across 150 sectors and the vehicle spawned normally at y=50 m.
+
+A separate normal Godot window was also launched successfully for visual inspection.
+
+Remaining validation is specifically visual/gameplay inspection of the cave geometry: verify both entrances, fly into the central cavern, traverse branches, and judge whether the cave proportions/readability are close enough to the intended Deep-Rock-like feeling.
+
+One non-fatal resource UID warning remains in the local editor cache for `world_settings.tres`; Godot falls back to the correct text resource path and runtime generation succeeds. This should be cleaned up separately rather than conflated with the cavern implementation.
+
 ## Follow-up if successful
 
 Refactor the temporary occupancy buffer into the planned project-owned voxel core:
