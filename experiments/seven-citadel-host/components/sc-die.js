@@ -1,0 +1,13 @@
+const tpl=document.createElement('template');
+tpl.innerHTML=`<style>:host{display:inline-block;aspect-ratio:1/1;--die:#183b49;--edge:#70ccde;user-select:none}.die{width:100%;height:100%;position:relative;filter:drop-shadow(0 5px 4px #0008);transition:transform .15s}.shape{position:absolute;inset:6%;clip-path:polygon(50% 0,94% 27%,80% 87%,50% 100%,20% 87%,6% 27%);background:linear-gradient(145deg,color-mix(in srgb,var(--die),#fff 20%),var(--die) 48%,#071116);border:1px solid var(--edge)}.shape:after{content:"";position:absolute;inset:0;background:linear-gradient(28deg,transparent 49%,#93d4e233 50%,transparent 51%),linear-gradient(-28deg,transparent 49%,#93d4e233 50%,transparent 51%)}.value{position:absolute;inset:0;display:grid;place-items:center;color:#f2eee5;font:900 clamp(13px,35cqw,40px)/1 Segoe UI,Arial;text-shadow:0 2px 3px #000;z-index:2}.rolling{animation:shake .11s linear 8}.success{--die:#1d5c43;--edge:#75d39d}.danger{--die:#682b31;--edge:#dc7777}@keyframes shake{0%{transform:none}25%{transform:translate(6%,-5%) rotate(8deg)}50%{transform:translate(-5%,4%) rotate(-8deg)}75%{transform:translate(4%,5%) rotate(5deg)}100%{transform:none}}</style><div class="die"><div class="shape"></div><div class="value">1</div></div>`;
+export class SCDie extends HTMLElement{
+  static get observedAttributes(){return ['value','state']}
+  constructor(){super();this.attachShadow({mode:'open'}).append(tpl.content.cloneNode(true));this._value=1}
+  connectedCallback(){this.value=Number(this.getAttribute('value')||1);this._paintState()}
+  attributeChangedCallback(name){if(name==='value')this.value=Number(this.getAttribute('value')||1);else this._paintState()}
+  get value(){return this._value}
+  set value(v){this._value=Math.max(1,Math.min(8,Number(v)||1));this.shadowRoot.querySelector('.value').textContent=this._value;if(this.getAttribute('value')!==String(this._value))this.setAttribute('value',String(this._value))}
+  _paintState(){const d=this.shadowRoot.querySelector('.die');d.classList.toggle('success',this.getAttribute('state')==='success');d.classList.toggle('danger',this.getAttribute('state')==='danger')}
+  async roll(){const d=this.shadowRoot.querySelector('.die');d.classList.add('rolling');for(let i=0;i<8;i++){this.value=1+Math.floor(Math.random()*8);await new Promise(r=>setTimeout(r,65))}d.classList.remove('rolling');this.dispatchEvent(new CustomEvent('sc-roll',{detail:{value:this.value},bubbles:true,composed:true}));return this.value}
+}
+customElements.define('sc-die',SCDie);

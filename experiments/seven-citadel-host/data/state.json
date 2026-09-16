@@ -1,0 +1,14 @@
+{
+  "revision": 1,
+  "campaignId": "seven-citadel-demo-001",
+  "turn": 2,
+  "location": "C-17 · LOS RESTOS",
+  "phase": "awaiting_roll",
+  "characterId": "mara_voss",
+  "narrative": ["refugio_improvisado"],
+  "activeEventId": "refugio_improvisado",
+  "selectedOptionId": "observar",
+  "activeCheckId": "observar_primero",
+  "tension": 0,
+  "hostMessage": "Chequeo de Percepción pendiente. Tirás vos; el host resuelve las consecuencias."
+}

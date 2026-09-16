@@ -1,0 +1,19 @@
+{
+  "collections": {
+    "actions": {
+      "fields": {
+        "action_type": {"type":"string","required":true,"maxLength":24,"trim":true},
+        "turn": {"type":"integer","required":true,"minimum":1,"maximum":9999},
+        "card_id": {"type":"string","required":true,"maxLength":96,"trim":true},
+        "payload": {"type":"string","required":true,"maxLength":3000,"trim":true}
+      },
+      "access": {
+        "read": "public",
+        "insert": "public",
+        "update": "owner",
+        "delete": "owner"
+      },
+      "rateLimit": "60/hour/ip"
+    }
+  }
+}

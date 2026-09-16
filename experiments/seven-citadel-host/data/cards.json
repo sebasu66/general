@@ -1,0 +1,42 @@
+{
+  "characters": {
+    "mara_voss": {
+      "id": "mara_voss",
+      "name": "MARA VOSS",
+      "role": "NÓMADE · RECUPERADORA",
+      "quote": "“No busco un hogar. Busco una ruta que siga existiendo mañana.”",
+      "health": 3,
+      "energy": 2,
+      "stats": {"fuerza":5,"agilidad":6,"ingenio":6,"percepcion":6,"presencia":4},
+      "art": null
+    }
+  },
+  "events": {
+    "refugio_improvisado": {
+      "id": "refugio_improvisado",
+      "code": "C-17 / EVENTO 01",
+      "zone": "ZONA C-17",
+      "location": "LOS RESTOS",
+      "title": "REFUGIO IMPROVISADO",
+      "text": "Bajo el viaducto derrumbado descubrís un refugio improvisado. Hay señales recientes de que alguien estuvo aquí: una fogata aún caliente, comida abierta y un mensaje pintado en el concreto. Puede ser una oportunidad… o una trampa.",
+      "art": null,
+      "options": [
+        {"id":"registrar","label":"REGISTRAR EL REFUGIO"},
+        {"id":"observar","label":"OBSERVAR PRIMERO"},
+        {"id":"seguir","label":"SEGUIR TU CAMINO"}
+      ]
+    }
+  },  "checks": {
+    "observar_primero": {
+      "id": "observar_primero",
+      "type": "ABILITY CHECK · EVIDENCIA",
+      "title": "OBSERVAR PRIMERO",
+      "description": "Evaluás el refugio desde una posición segura, buscando patrones que delaten una emboscada.",
+      "attribute": "percepcion",
+      "dice": 3,
+      "difficulty": 2,
+      "rule": "Cada d8 igual o menor al atributo suma 1 éxito. Un 1 suma 2 éxitos. Un 8 genera +1 Tensión.",
+      "evidence": "EVIDENCIA: fuego demasiado estable, latas ordenadas y ausencia de huellas naturales."
+    }
+  }
+}
