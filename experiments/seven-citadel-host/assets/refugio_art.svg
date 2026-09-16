@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430">
+<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2d1838"/><stop offset=".45" stop-color="#172735"/><stop offset="1" stop-color="#090d10"/></linearGradient><radialGradient id="fire"><stop stop-color="#fff2ad"/><stop offset=".22" stop-color="#ffad3f"/><stop offset=".6" stop-color="#e44822" stop-opacity=".8"/><stop offset="1" stop-color="#d22b1b" stop-opacity="0"/></radialGradient></defs>
+<rect width="800" height="430" fill="url(#sky)"/>
+<g fill="#101821"><path d="M420 24h42v222h-42zM472 67h36v179h-36zM520 30h50v216h-50zM584 88h31v158h-31zM629 54h57v192h-57zM700 92h43v154h-43z"/></g>
+<g fill="#e45c9c" opacity=".65"><rect x="444" y="64" width="5" height="78"/><rect x="544" y="52" width="4" height="88"/><rect x="653" y="80" width="5" height="74"/></g>
+<path d="M0 68h800v73H0z" fill="#202224"/><path d="M0 132h800v28H0z" fill="#050708"/>
+<g fill="#2a2d2f"><path d="M72 140h38L94 350H51zM296 140h38l12 210h-52zM638 140h40l30 210h-54z"/></g>
+<path d="M0 318c118-34 228 16 355-17s255-18 445 20v109H0z" fill="#111518"/><path d="M0 349c183-54 291 34 424-9 109-35 238-17 376 21" fill="none" stroke="#5e8f98" stroke-width="6" opacity=".3"/>
+<g transform="translate(122 178)"><path d="M0 72l66-64 101 9 55 56-17 90H15z" fill="#151412" stroke="#6a4b37" stroke-width="4"/><path d="M15 70l53-46 90 7 43 43" fill="none" stroke="#9d6744" stroke-width="6"/><rect x="30" y="93" width="57" height="44" fill="#24170e"/><ellipse cx="60" cy="124" rx="84" ry="84" fill="url(#fire)" opacity=".78"/><path d="M46 137c12-42 31-44 23-80 29 27 43 46 27 82z" fill="#ffb23f"/><path d="M60 140c8-27 17-32 17-53 17 16 25 31 17 53z" fill="#fff1ac"/></g>
+<g fill="#272a2b" stroke="#0b0d0e" stroke-width="2"><rect x="356" y="286" width="68" height="41"/><rect x="439" y="298" width="53" height="32"/><rect x="506" y="280" width="74" height="50"/><circle cx="375" cy="335" r="16"/><circle cx="555" cy="338" r="16"/></g>
+<g opacity=".75"><rect x="708" y="175" width="13" height="132" fill="#642d39"/><rect x="719" y="184" width="48" height="68" fill="#3b2029"/><text x="733" y="201" fill="#ff6aa9" font-size="18" font-family="monospace" transform="rotate(90 733 201)">CITADEL?</text></g>
+<g stroke="#b9e8f3" stroke-width="1" opacity=".18"><path d="M30 14l-25 102M92 0L51 169M162 0l-54 205M243 0l-65 244M350 0l-79 291M470 0l-88 324M603 0l-88 325M740 0l-82 303"/></g>
+<rect x="7" y="7" width="786" height="416" fill="none" stroke="#221310" stroke-width="14" opacity=".5"/>
+</svg>

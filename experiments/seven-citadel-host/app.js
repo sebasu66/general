@@ -8,18 +8,19 @@ async function refresh(){
     cards = await loadJson('./data/cards.json');
     const state=await loadJson('./data/state.json');
     if(state.revision!==currentRevision){currentRevision=state.revision;table.game={cards,state}}
-    hostStatus.textContent=`HOST ACTIVO Â· REV ${state.revision} Â· ${state.hostMessage||state.phase}`;
-  }catch(err){hostStatus.textContent=`SINCRONIZACIÃ“N INTERRUMPIDA Â· ${err.message}`}
+    hostStatus.textContent=`HOST ACTIVO · REV ${state.revision} · ${state.hostMessage||state.phase}`;
+  }catch(err){hostStatus.textContent=`SINCRONIZACIÓN INTERRUMPIDA · ${err.message}`}
 }
 async function sendAction(action){
   const key=`${action.action_type}:${action.turn}:${action.card_id}:${action.payload}`;if(key===lastActionKey)return;lastActionKey=key;
   try{
     const response=await fetch('./.herenow/data/actions',{method:'POST',headers:{'content-type':'application/json','Idempotency-Key':crypto.randomUUID()},body:JSON.stringify(action)});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
-    hostStatus.textContent='ACCIÃ“N RECIBIDA Â· ESPERANDO RESOLUCIÃ“N DEL HOST';
-  }catch(err){lastActionKey='';hostStatus.textContent=`NO SE PUDO ENVIAR LA ACCIÃ“N Â· ${err.message}`;table.showToast('No se pudo registrar la acciÃ³n. PodÃ©s reintentar.')}
+    hostStatus.textContent='ACCIÓN RECIBIDA · ESPERANDO RESOLUCIÓN DEL HOST';
+  }catch(err){lastActionKey='';hostStatus.textContent=`NO SE PUDO ENVIAR LA ACCIÓN · ${err.message}`;table.showToast('No se pudo registrar la acción. Podés reintentar.')}
 }
 table.actionHandler=sendAction;
 await refresh();
 setInterval(refresh,3000);
+
 
