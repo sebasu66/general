@@ -64,12 +64,21 @@ Las reglas de reparto ("cada jugador recibe 4 miniaturas y 5 cartas") se **defin
 - Zonas privadas: se aplican con un filtro único en el servidor (equivalente a `playerView` de boardgame.io), que enmascara lo que no le corresponde ver a cada cliente.
 - El azar (barajar) usa un generador con semilla guardada en `m`.
 
-## 6. Preguntas abiertas
+## 6. Decisiones del dueño (2026-10-18)
 
-1. Zona privada: ¿los demás ven que hay objetos pero no cuáles, o no ven nada?
-2. Modo `closed`: si algo cae fuera de un slot, ¿vuelve a donde estaba o se rechaza el gesto?
-3. ¿La plantilla de zona de jugador la define cada juego o hay una por defecto de la mesa?
+- **Zona privada:** los demás no ven nada; el contenido es invisible para ellos (por ahora).
+- **Mesa cerrada:** soltar fuera de un slot se rechaza. **Mesa abierta:** cerca de un slot se imanta; en otro lado queda suelto, pero igual se ajusta a la grilla para que la mesa sepa su celda.
+- **Plantilla de zona de jugador:** la define cada juego. Por defecto es un área delimitada alrededor de la zona pública, como en la realidad. Referencia ante la duda: Tabletop Simulator.
+- **Superficie:** texturas PBR de ambientCG.
+- **Grilla y escala:** la mesa tiene una grilla con tamaño de celda en cm. Una celda aloja un objeto chico (ficha, dado, miniatura); lo grande (cartas, tableros) ocupa un grupo de celdas.
+- **Pivote:** lo que está en una celda o grupo de celdas se centra por su pivote en el centro de esa celda o grupo, salvo que el juego diga otra cosa.
+- **Conocimiento en ambos sentidos:** la mesa sabe qué hay en cada celda y slot; cada objeto sabe su celda, su slot y quién lo contiene. Cadena: celda -> slot -> mazo -> cartas, y carta -> mazo -> slot -> celda.
 
-## 7. Estado actual en BGO
+## 7. Preguntas abiertas
+
+1. Tamaño de celda por defecto. Para una carta de póker (63 x 88 mm): con 5 cm ocupa 2 x 2 celdas; con 4 cm, 2 x 3; con 3 cm, 3 x 3. Una ficha, dado o miniatura (hasta unos 3 cm de base) entra en una celda con 3, 4 o 5 cm. Propuesta: dejar 5 cm por defecto y que cada juego fije su `cell_size_cm`.
+2. Los objetos declaran su tamaño en cm y la mesa calcula cuántas celdas cubren (redondeando hacia arriba).
+
+## 8. Estado actual en BGO
 
 Ya existe en `games/test001/game.jsonh`: `table` con `areas` y `owner_id`, `slots` con `accepted_kinds` y pose, `placement_mode: free_or_slot`, `surface.material` y `environment`. Falta: el árbol de verbos `g`/`m`, `mode` como `free`/`closed`, luces como lista, `visibility` en zonas, `anchor` en slots, zona de jugador por asiento, `MODULE.md` y tests de la mesa.
